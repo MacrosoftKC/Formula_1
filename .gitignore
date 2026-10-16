@@ -1,0 +1,20 @@
+# Local toolchain (Godot editor download)
+.tools/
+
+# Godot
+game/.godot/
+game/export_presets.cfg.bak
+*.translation
+/builds/
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,128 @@
+{
+  // 2025 Australian Grand Prix line-up. Edit freely: names, numbers, colours and performance are all data-driven.
+  // Car performance is relative to a reference car (1.0). Ratings are 0-100.
+  "season": 2025,
+  "event": "Australian Grand Prix",
+  "teams": [
+    {
+      "id": "mclaren", "name": "McLaren", "shortName": "MCL", "powerUnit": "Mercedes",
+      "primary": "#FF8000", "secondary": "#1F5FD6", "accent": "#111111", "rim": "#FF8000",
+      "livery": { "sidepod": "#1F5FD6", "frontWing": "#1F5FD6", "endplates": "#FF8000", "rearWing": "#1F5FD6", "halo": "#FF8000", "text": "#FFFFFF" },
+      "car": { "power": 1.000, "downforce": 1.000, "drag": 1.000, "tyreWear": 0.92, "reliability": 96, "pitStopTime": 2.3 },
+      "drivers": [
+        { "number": 4, "firstName": "Lando", "lastName": "Norris", "code": "NOR", "nationality": "GBR", "helmet": "#E8F04A",
+          "ratings": { "pace": 95, "consistency": 88, "racecraft": 88, "tyreManagement": 90, "wet": 90, "starts": 84 } },
+        { "number": 81, "firstName": "Oscar", "lastName": "Piastri", "code": "PIA", "nationality": "AUS", "helmet": "#1E3A8A",
+          "ratings": { "pace": 94, "consistency": 92, "racecraft": 89, "tyreManagement": 91, "wet": 86, "starts": 88 } }
+      ]
+    },
+    {
+      "id": "ferrari", "name": "Ferrari", "shortName": "FER", "powerUnit": "Ferrari",
+      "primary": "#D40000", "secondary": "#FFFFFF", "accent": "#FFDD00", "rim": "#D40000",
+      "livery": { "noseTip": "#FFDD00", "frontWing": "#D40000", "endplates": "#D40000", "rearWing": "#FFFFFF", "engineCover": "#D40000", "halo": "#D40000", "text": "#111111" },
+      "car": { "power": 1.004, "downforce": 0.988, "drag": 0.995, "tyreWear": 0.98, "reliability": 94, "pitStopTime": 2.4 },
+      "drivers": [
+        { "number": 16, "firstName": "Charles", "lastName": "Leclerc", "code": "LEC", "nationality": "MON", "helmet": "#C8102E",
+          "ratings": { "pace": 95, "consistency": 87, "racecraft": 90, "tyreManagement": 85, "wet": 86, "starts": 88 } },
+        { "number": 44, "firstName": "Lewis", "lastName": "Hamilton", "code": "HAM", "nationality": "GBR", "helmet": "#F5D90A",
+          "ratings": { "pace": 91, "consistency": 89, "racecraft": 94, "tyreManagement": 93, "wet": 95, "starts": 86 } }
+      ]
+    },
+    {
+      "id": "mercedes", "name": "Mercedes", "shortName": "MER", "powerUnit": "Mercedes",
+      "primary": "#111111", "secondary": "#C8CCCE", "accent": "#00D2BE", "rim": "#00D2BE",
+      "livery": { "airbox": "#C8102E", "frontWing": "#00D2BE", "endplates": "#7A0F1E", "rearWing": "#111111", "halo": "#111111", "text": "#FFFFFF" },
+      "car": { "power": 1.000, "downforce": 0.992, "drag": 0.990, "tyreWear": 0.97, "reliability": 96, "pitStopTime": 2.4 },
+      "drivers": [
+        { "number": 63, "firstName": "George", "lastName": "Russell", "code": "RUS", "nationality": "GBR", "helmet": "#2B2B8F",
+          "ratings": { "pace": 93, "consistency": 90, "racecraft": 89, "tyreManagement": 86, "wet": 89, "starts": 87 } },
+        { "number": 12, "firstName": "Andrea Kimi", "lastName": "Antonelli", "code": "ANT", "nationality": "ITA", "helmet": "#3A86FF",
+          "ratings": { "pace": 88, "consistency": 80, "racecraft": 84, "tyreManagement": 82, "wet": 86, "starts": 82 } }
+      ]
+    },
+    {
+      "id": "red_bull", "name": "Red Bull Racing", "shortName": "RBR", "powerUnit": "Honda RBPT",
+      "primary": "#1B2A5C", "secondary": "#DB0A40", "accent": "#FFC906", "rim": "#DB0A40",
+      "livery": { "noseTip": "#FFC906", "airbox": "#FFC906", "frontWing": "#1B2A5C", "endplates": "#1B2A5C", "rearWing": "#1B2A5C", "halo": "#1B2A5C", "text": "#DB0A40" },
+      "car": { "power": 1.002, "downforce": 0.990, "drag": 0.985, "tyreWear": 1.00, "reliability": 95, "pitStopTime": 2.2 },
+      "drivers": [
+        { "number": 1, "firstName": "Max", "lastName": "Verstappen", "code": "VER", "nationality": "NED", "helmet": "#E5332A",
+          "ratings": { "pace": 98, "consistency": 95, "racecraft": 96, "tyreManagement": 92, "wet": 97, "starts": 90 } },
+        { "number": 30, "firstName": "Liam", "lastName": "Lawson", "code": "LAW", "nationality": "NZL", "helmet": "#111111",
+          "ratings": { "pace": 82, "consistency": 76, "racecraft": 84, "tyreManagement": 78, "wet": 80, "starts": 80 } }
+      ]
+    },
+    {
+      "id": "williams", "name": "Williams", "shortName": "WIL", "powerUnit": "Mercedes",
+      "primary": "#0A2A6B", "secondary": "#00A3E0", "accent": "#FFFFFF", "rim": "#00A3E0",
+      "livery": { "sidepod": "#0A2A6B", "frontWing": "#00A3E0", "rearWing": "#0A2A6B", "text": "#FFFFFF" },
+      "car": { "power": 1.000, "downforce": 0.972, "drag": 0.975, "tyreWear": 1.02, "reliability": 93, "pitStopTime": 2.6 },
+      "drivers": [
+        { "number": 23, "firstName": "Alexander", "lastName": "Albon", "code": "ALB", "nationality": "THA", "helmet": "#2DA8E0",
+          "ratings": { "pace": 88, "consistency": 88, "racecraft": 87, "tyreManagement": 88, "wet": 84, "starts": 85 } },
+        { "number": 55, "firstName": "Carlos", "lastName": "Sainz", "code": "SAI", "nationality": "ESP", "helmet": "#E10600",
+          "ratings": { "pace": 89, "consistency": 89, "racecraft": 89, "tyreManagement": 89, "wet": 85, "starts": 86 } }
+      ]
+    },
+    {
+      "id": "racing_bulls", "name": "Racing Bulls", "shortName": "RB", "powerUnit": "Honda RBPT",
+      "primary": "#F4F4F4", "secondary": "#1634CB", "accent": "#E4002B", "rim": "#1634CB",
+      "livery": { "sidepod": "#1634CB", "noseTip": "#E4002B", "frontWing": "#1634CB", "rearWing": "#1634CB", "text": "#1634CB" },
+      "car": { "power": 1.002, "downforce": 0.972, "drag": 0.990, "tyreWear": 1.01, "reliability": 93, "pitStopTime": 2.5 },
+      "drivers": [
+        { "number": 22, "firstName": "Yuki", "lastName": "Tsunoda", "code": "TSU", "nationality": "JPN", "helmet": "#2D2D8C",
+          "ratings": { "pace": 87, "consistency": 82, "racecraft": 84, "tyreManagement": 82, "wet": 83, "starts": 84 } },
+        { "number": 6, "firstName": "Isack", "lastName": "Hadjar", "code": "HAD", "nationality": "FRA", "helmet": "#F2F2F2",
+          "ratings": { "pace": 85, "consistency": 80, "racecraft": 82, "tyreManagement": 80, "wet": 80, "starts": 80 } }
+      ]
+    },
+    {
+      "id": "aston_martin", "name": "Aston Martin", "shortName": "AMR", "powerUnit": "Mercedes",
+      "primary": "#00594F", "secondary": "#CEDC00", "accent": "#111111", "rim": "#CEDC00",
+      "livery": { "frontWing": "#CEDC00", "rearWing": "#00594F", "text": "#CEDC00" },
+      "car": { "power": 1.000, "downforce": 0.968, "drag": 0.995, "tyreWear": 1.00, "reliability": 92, "pitStopTime": 2.5 },
+      "drivers": [
+        { "number": 14, "firstName": "Fernando", "lastName": "Alonso", "code": "ALO", "nationality": "ESP", "helmet": "#1E64C8",
+          "ratings": { "pace": 90, "consistency": 91, "racecraft": 95, "tyreManagement": 92, "wet": 91, "starts": 92 } },
+        { "number": 18, "firstName": "Lance", "lastName": "Stroll", "code": "STR", "nationality": "CAN", "helmet": "#E4002B",
+          "ratings": { "pace": 80, "consistency": 77, "racecraft": 80, "tyreManagement": 80, "wet": 83, "starts": 86 } }
+      ]
+    },
+    {
+      "id": "haas", "name": "Haas", "shortName": "HAA", "powerUnit": "Ferrari",
+      "primary": "#F2F2F2", "secondary": "#111111", "accent": "#E6002B", "rim": "#111111",
+      "livery": { "sidepod": "#111111", "frontWing": "#111111", "rearWing": "#E6002B", "text": "#E6002B" },
+      "car": { "power": 1.004, "downforce": 0.962, "drag": 0.990, "tyreWear": 0.99, "reliability": 92, "pitStopTime": 2.6 },
+      "drivers": [
+        { "number": 31, "firstName": "Esteban", "lastName": "Ocon", "code": "OCO", "nationality": "FRA", "helmet": "#0066CC",
+          "ratings": { "pace": 85, "consistency": 85, "racecraft": 86, "tyreManagement": 86, "wet": 85, "starts": 84 } },
+        { "number": 87, "firstName": "Oliver", "lastName": "Bearman", "code": "BEA", "nationality": "GBR", "helmet": "#FFFFFF",
+          "ratings": { "pace": 84, "consistency": 80, "racecraft": 83, "tyreManagement": 80, "wet": 80, "starts": 80 } }
+      ]
+    },
+    {
+      "id": "alpine", "name": "Alpine", "shortName": "ALP", "powerUnit": "Renault",
+      "primary": "#0B1E46", "secondary": "#FD4BC7", "accent": "#0078C1", "rim": "#FD4BC7",
+      "livery": { "sidepod": "#FD4BC7", "frontWing": "#0078C1", "rearWing": "#FD4BC7", "text": "#FFFFFF" },
+      "car": { "power": 0.992, "downforce": 0.968, "drag": 0.990, "tyreWear": 1.02, "reliability": 91, "pitStopTime": 2.6 },
+      "drivers": [
+        { "number": 10, "firstName": "Pierre", "lastName": "Gasly", "code": "GAS", "nationality": "FRA", "helmet": "#1A3C8C",
+          "ratings": { "pace": 87, "consistency": 85, "racecraft": 86, "tyreManagement": 85, "wet": 85, "starts": 85 } },
+        { "number": 7, "firstName": "Jack", "lastName": "Doohan", "code": "DOO", "nationality": "AUS", "helmet": "#FFCD00",
+          "ratings": { "pace": 80, "consistency": 74, "racecraft": 78, "tyreManagement": 78, "wet": 76, "starts": 78 } }
+      ]
+    },
+    {
+      "id": "sauber", "name": "Kick Sauber", "shortName": "SAU", "powerUnit": "Ferrari",
+      "primary": "#0C0C0C", "secondary": "#52E252", "accent": "#FFFFFF", "rim": "#52E252",
+      "livery": { "sidepod": "#52E252", "frontWing": "#52E252", "rearWing": "#0C0C0C", "text": "#52E252" },
+      "car": { "power": 1.004, "downforce": 0.958, "drag": 0.995, "tyreWear": 1.00, "reliability": 92, "pitStopTime": 2.7 },
+      "drivers": [
+        { "number": 27, "firstName": "Nico", "lastName": "Hulkenberg", "code": "HUL", "nationality": "GER", "helmet": "#F2F2F2",
+          "ratings": { "pace": 86, "consistency": 88, "racecraft": 86, "tyreManagement": 86, "wet": 87, "starts": 82 } },
+        { "number": 5, "firstName": "Gabriel", "lastName": "Bortoleto", "code": "BOR", "nationality": "BRA", "helmet": "#FFD100",
+          "ratings": { "pace": 83, "consistency": 80, "racecraft": 81, "tyreManagement": 80, "wet": 79, "starts": 80 } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  // 2025 FIA Formula 1 sporting/technical numbers used by the game.
+  // Penalty baselines follow the FIA "2025 F1 Penalty and Point Guidelines" (14 May 2025), race column.
+  "season": 2025,
+  "points": [25, 18, 15, 12, 10, 8, 6, 4, 2, 1],
+  "fastestLapPoint": false,
+  "classificationPercent": 90,
+  "maxRaceHours": 2,
+  "car": { "minimumMassKg": 800, "fuelMaxKg": 110, "fuelFlowMaxKgPerHour": 100, "revLimit": 15000, "forwardGears": 8 },
+  "ers": { "mguKMaxKw": 120, "storeMaxMj": 4.0, "deployPerLapMj": 4.0, "harvestPerLapMj": 2.0 },
+  "drs": { "enabledAfterLaps": 2, "detectionGapSeconds": 1.0, "disabledWhenWetDeclared": true },
+  "tyres": {
+    "mandatoryTwoDryCompounds": true,
+    "blanketTempC": 70,
+    "setsPerWeekend": 13,
+    // Albert Park 2025 nomination: C3 hard, C4 medium, C5 soft.
+    "compounds": [
+      { "id": "soft", "name": "Soft", "pirelli": "C5", "color": "#E8262B", "dry": true },
+      { "id": "medium", "name": "Medium", "pirelli": "C4", "color": "#F2C200", "dry": true },
+      { "id": "hard", "name": "Hard", "pirelli": "C3", "color": "#F2F2F2", "dry": true },
+      { "id": "intermediate", "name": "Intermediate", "pirelli": "INT", "color": "#39B54A", "dry": false },
+      { "id": "wet", "name": "Wet", "pirelli": "WET", "color": "#0067AD", "dry": false }
+    ]
+  },
+  "pit": { "speedingMinorMaxKmh": 15, "speedingMinorPenalty": "time5", "speedingMajorPenalty": "driveThrough", "speedingToleranceKmh": 0.5 },
+  "trackLimits": { "blackAndWhiteAtStrike": 3, "penaltyFromStrike": 4, "penalty": "time5", "wheelTolerance": 0.0 },
+  "safetyCar": { "vscDeltaFactor": 1.4, "scDeltaFactor": 1.35, "maxGapCarLengths": 10, "lappedCarsMayUnlap": true, "vscEndingWarningSeconds": 12, "scSpeedKmh": 160 },
+  "qualifying": { "q1Minutes": 18, "q2Minutes": 15, "q3Minutes": 12, "eliminatedAfterQ1": 5, "eliminatedAfterQ2": 5, "rule107Percent": 107 },
+  "start": { "lightIntervalSeconds": 1.0, "lightsOutMinDelay": 0.2, "lightsOutMaxDelay": 3.0, "jumpStartDistance": 0.5 },
+  "penalties": {
+    "jumpStart": "time10",
+    "causingCollision": "time10",
+    "forcingOffTrack": "time10",
+    "leavingTrackGainingAdvantage": "time10",
+    "yellowFlagOvertake": "time10",
+    "doubleYellowOvertake": "stopGo10",
+    "ignoringBlueFlags": "time5",
+    "blueFlagsBeforePenalty": 3,
+    "safetyCarOvertake": "time10",
+    "vscSpeeding": "time5",
+    "unsafeRelease": "time5",
+    "pitEntryLine": "time5",
+    "pitExitLine": "time5",
+    "redLightAtPitExit": "stopGo10",
+    "twoCompoundRule": "disqualification",
+    "serveWithinLaps": 3
+  }
+}

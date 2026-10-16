@@ -1,0 +1,12 @@
+{
+  // Trackside advertising boards. Text and colours are free to edit (real brand names are used to match the
+  // reference look; swap them out before publishing the game).
+  "boards": [
+    { "text": "Heineken", "background": "#1E7A3A", "foreground": "#FFFFFF" },
+    { "text": "PIRELLI", "background": "#FFD500", "foreground": "#D6001C" },
+    { "text": "Melbourne", "background": "#1D2E6E", "foreground": "#FFFFFF" },
+    { "text": "ROLEX", "background": "#006039", "foreground": "#C9A646" },
+    { "text": "AUSTRALIAN GRAND PRIX", "background": "#E10600", "foreground": "#FFFFFF" },
+    { "text": "FORMULA 1", "background": "#15151E", "foreground": "#FFFFFF" }
+  ]
+}
