@@ -99,9 +99,11 @@ public partial class Hud : CanvasLayer
         BuildTiming();
         BuildTyres();
         _message = HudStyle.Label(_root, "", 30, HudStyle.Text, HorizontalAlignment.Center);
-        _message.SetAnchorsPreset(Control.LayoutPreset.CenterTop);
-        _message.Position = new Vector2(-400, 150);
-        _message.Size = new Vector2(800, 50);
+        // anchored to the top centre; offsets are set explicitly (Position would be re-based on the anchors)
+        _message.AnchorLeft = _message.AnchorRight = 0.5f;
+        _message.AnchorTop = _message.AnchorBottom = 0f;
+        _message.OffsetLeft = -400; _message.OffsetRight = 400;
+        _message.OffsetTop = 150; _message.OffsetBottom = 200;
         _minimap = new Minimap { Track = Track, Position = new Vector2(24, 0), Size = new Vector2(250, 250) };
         _minimap.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
         _minimap.Position = new Vector2(24, -274);

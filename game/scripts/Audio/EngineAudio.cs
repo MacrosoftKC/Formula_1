@@ -1,3 +1,5 @@
+using F1.Core.Audio;
+using F1.Game.Camera;
 using F1.Game.Core;
 using F1.Game.Vehicle;
 using Godot;
@@ -5,34 +7,41 @@ using Godot;
 namespace F1.Game.Audio;
 
 /// <summary>
-/// Procedurally synthesised car sound (no audio assets): V6 firing harmonics driven by rpm and throttle, turbo and
-/// MGU-K whine, overrun crackle, shift cuts, tyre squeal, wind and kerb rumble. Use <see cref="Positional"/> for AI cars.
+/// Car sound: feeds the car's live power-unit and chassis state into the procedural turbo-hybrid V6
+/// (<see cref="HybridV6Synth"/>) and chassis effects (<see cref="ChassisFxSynth"/>) and streams the result.
+/// The player mix follows the camera: onboard cams hear the airbox, MGU-K and gearbox; chase cams hear the exhaust;
+/// trackside TV cams hear the car at distance with air absorption and Doppler. Use <see cref="Positional"/> for AI cars.
 /// </summary>
 public partial class EngineAudio : Node3D
 {
     public Car? Target { get; set; }
-    /// <summary>3D sound for other cars (simpler mix, distance attenuation); 2D full mix for the player car.</summary>
+    /// <summary>Player camera, for the onboard/external mix and the TV-camera distance and Doppler.</summary>
+    public CameraRig? Rig { get; set; }
+    /// <summary>3D sound for other cars (exhaust mix, engine attenuation handles distance); 2D full mix for the player.</summary>
     public bool Positional { get; set; }
 
+    private const int MixRate = 44100;
+    private const float SpeedOfSound = 343f;
     private AudioStreamGeneratorPlayback? _playback;
-    private Node? _player;
-    private const float MixRate = 22050f;
-    private double _p1, _turbo, _whine, _squealPhase, _rumblePhase;
-    private float _noiseLp, _windLp, _squealEnv, _amp, _rpmSmooth = 4000, _crackle;
-    private int _lastGear;
-    private float _shiftDip;
-    private readonly Random _rng = new(1);
+    private HybridV6Synth _engine = null!;
+    private ChassisFxSynth _fx = null!;
+    private float[] _eng = Array.Empty<float>(), _l = Array.Empty<float>(), _r = Array.Empty<float>();
+    private Vector2[] _buffer = Array.Empty<Vector2>();
+    private int _lastGear = 1;
+    private float _onboard = 1, _doppler = 1, _gain = 1, _air = 20000;
+    private float _prevDistance = -1;
 
     public override void _Ready()
     {
-        var gen = new AudioStreamGenerator { MixRate = MixRate, BufferLength = 0.12f };
+        _engine = new HybridV6Synth(MixRate, (uint)(GetInstanceId() & 0xFFFF) + 1);
+        _fx = new ChassisFxSynth(MixRate);
+        var gen = new AudioStreamGenerator { MixRate = MixRate, BufferLength = 0.1f };
         if (Positional)
         {
-            var p3 = new AudioStreamPlayer3D { Stream = gen, UnitSize = 18, MaxDistance = 450, Bus = "Master", AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance };
+            var p3 = new AudioStreamPlayer3D { Stream = gen, UnitSize = 18, MaxDistance = 500, Bus = "Master", AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance };
             AddChild(p3);
             p3.Play();
             _playback = (AudioStreamGeneratorPlayback)p3.GetStreamPlayback();
-            _player = p3;
         }
         else
         {
@@ -40,84 +49,137 @@ public partial class EngineAudio : Node3D
             AddChild(p);
             p.Play();
             _playback = (AudioStreamGeneratorPlayback)p.GetStreamPlayback();
-            _player = p;
         }
+        if (Target != null) _lastGear = Target.Gear;
     }
 
     public override void _Process(double delta)
     {
         if (_playback == null || Target == null || !IsInstanceValid(Target)) return;
-        if (Positional) GlobalPosition = Target.GlobalPosition;
-        var s = App.Instance.Settings;
+        var car = Target;
+        if (Positional) GlobalPosition = car.GlobalPosition;
+        float dt = (float)Math.Max(delta, 1e-4);
+        UpdateListener(car, dt);
+
+        if (car.Gear != _lastGear)
+        {
+            _engine.GearChanged(_lastGear, car.Gear);
+            _lastGear = car.Gear;
+        }
+
+        _engine.State = new PowerUnitSoundState
+        {
+            Rpm = car.Rpm,
+            Throttle = car.ThrottleApplied,
+            SpeedMs = car.SpeedMs,
+            MguKPowerW = (float)car.PU.MguKPowerW,
+            Gear = car.Gear,
+            PitLimiter = car.PitLimiter,
+            RevLimit = (float)car.PU.RevLimit,
+            Onboard = _onboard,
+            Doppler = _doppler,
+            AirCutoffHz = _air,
+        };
+
         int frames = _playback.GetFramesAvailable();
         if (frames <= 0) return;
+        if (_eng.Length < frames)
+        {
+            _eng = new float[frames]; _l = new float[frames]; _r = new float[frames];
+            _buffer = new Vector2[frames];
+        }
+        var eng = _eng.AsSpan(0, frames);
+        _engine.Render(eng);
 
-        float rpmTarget = Target.Rpm;
-        float throttle = Target.ThrottleApplied;
-        float speed = Target.SpeedMs;
-        bool deploying = Target.PU.MguKPowerW > 1000;
-        if (Target.Gear != _lastGear) { _shiftDip = 1f; _lastGear = Target.Gear; }
+        var s = App.Instance.Settings;
+        float engineVol = s.EngineVolume * _gain * (Positional ? 1.1f : 0.6f);
+        if (Positional)
+        {
+            for (int i = 0; i < frames; i++)
+            {
+                float v = MathF.Tanh(eng[i] * engineVol * 1.6f) * 0.7f;
+                _buffer[i] = new Vector2(v, v);
+            }
+        }
+        else
+        {
+            _fx.State = ChassisState(car);
+            _fx.Render(_l.AsSpan(0, frames), _r.AsSpan(0, frames));
+            float fxVol = s.EffectsVolume * 0.45f * Math.Max(_gain, _onboard);
+            for (int i = 0; i < frames; i++)
+            {
+                float e = eng[i] * engineVol;
+                _buffer[i] = new Vector2(MathF.Tanh((e + _l[i] * fxVol) * 1.6f) * 0.7f, MathF.Tanh((e + _r[i] * fxVol) * 1.6f) * 0.7f);
+            }
+        }
+        _playback.PushBuffer(frames == _buffer.Length ? _buffer : _buffer[..frames]);
+    }
 
-        float slip = 0, rumble = 0;
-        foreach (var w in Target.Wheels)
+    /// <summary>Works out how the listener (the camera) hears the car: onboard blend, distance, Doppler.</summary>
+    private void UpdateListener(Car car, float dt)
+    {
+        float onboard = 0, doppler = 1, gain = 1, air = 20000;
+        if (!Positional && Rig != null)
+        {
+            onboard = Rig.Mode switch
+            {
+                CameraMode.Cockpit or CameraMode.Helmet => 1f,
+                CameraMode.TCam => 0.75f,
+                CameraMode.Nose => 0.55f,
+                CameraMode.ChaseNear => 0.15f,
+                _ => 0f,
+            };
+            if (Rig.Mode == CameraMode.TV && Rig.Camera != null)
+            {
+                float d = Rig.Camera.GlobalPosition.DistanceTo(car.GlobalPosition);
+                // a TV camera cut jumps the distance; don't read that as a supersonic closing speed
+                if (_prevDistance >= 0 && Math.Abs(d - _prevDistance) < 15f)
+                {
+                    float radial = (d - _prevDistance) / dt;
+                    doppler = Math.Clamp(SpeedOfSound / (SpeedOfSound + radial), 0.7f, 1.4f);
+                }
+                else doppler = _doppler;
+                _prevDistance = d;
+                gain = Math.Clamp(16f / Math.Max(d, 1f), 0.06f, 1f);
+                air = Math.Clamp(16000f * 30f / Math.Max(d, 1f), 1500f, 20000f);
+            }
+            else _prevDistance = -1;
+        }
+        else if (Positional) _prevDistance = -1;
+
+        // ease camera switches so the mix doesn't snap
+        float k = Math.Min(1, dt * 8);
+        _onboard += (onboard - _onboard) * k;
+        _doppler += (doppler - _doppler) * Math.Min(1, dt * 12);
+        _gain += (gain - _gain) * k;
+        _air += (air - _air) * k;
+    }
+
+    private ChassisSoundState ChassisState(Car car)
+    {
+        float slip = 0, kerb = 0, gravel = 0, grass = 0, lockup = 0;
+        foreach (var w in car.Wheels)
         {
             if (!w.Grounded) continue;
             slip = Math.Max(slip, (float)Math.Max(Math.Abs(w.SlipAngle) / 0.16 - 0.6, Math.Abs(w.SlipRatio) / 0.18 - 0.6));
-            if (w.Surface.Type == Track.SurfaceType.Kerb) rumble = 1;
-            else if (w.Surface.Type is Track.SurfaceType.Gravel or Track.SurfaceType.Grass) rumble = Math.Max(rumble, 0.6f);
-        }
-        slip = Math.Clamp(slip, 0, 1) * Math.Clamp(speed / 8f, 0, 1);
-
-        float engineVol = s.EngineVolume * (Positional ? 1.0f : 0.55f);
-        float fxVol = s.EffectsVolume * 0.5f;
-        var buffer = new Vector2[frames];
-        for (int i = 0; i < frames; i++)
-        {
-            _rpmSmooth += (rpmTarget - _rpmSmooth) * 0.0025f;
-            float f0 = _rpmSmooth / 60f * 3f; // V6: three firing pulses per revolution
-            _p1 = (_p1 + f0 / MixRate) % 1.0;
-            double ph = _p1 * Math.Tau;
-            float saw = (float)(2 * ((_p1 * 0.5) % 1.0) - 1);
-            float targetAmp = 0.32f + throttle * 0.68f;
-            _amp += (targetAmp - _amp) * 0.0015f;
-            _shiftDip = Math.Max(0, _shiftDip - 1f / (MixRate * 0.06f));
-
-            float engine = (float)(0.55 * Math.Sin(ph) + 0.28 * Math.Sin(2 * ph + 0.3) + 0.14 * Math.Sin(3 * ph + 1.1) + 0.07 * Math.Sin(6 * ph));
-            engine += saw * (0.12f + throttle * 0.16f);
-            float rough = (float)(_rng.NextDouble() * 2 - 1);
-            _noiseLp += (rough - _noiseLp) * 0.35f;
-            engine += _noiseLp * 0.08f * throttle;
-
-            // overrun crackle off-throttle at high rpm
-            if (throttle < 0.05f && _rpmSmooth > 8000 && _rng.NextDouble() < 0.0009) _crackle = 1f;
-            _crackle *= 0.992f;
-            engine += _crackle * rough * 0.6f;
-            engine *= _amp * (1 - _shiftDip * 0.6f);
-
-            // turbo whistle and MGU-K whine
-            _turbo = (_turbo + (2600 + _rpmSmooth * 0.32) / MixRate) % 1.0;
-            float turbo = (float)Math.Sin(_turbo * Math.Tau) * 0.035f * throttle;
-            _whine = (_whine + (speed * 55 + 400) / MixRate) % 1.0;
-            float whine = deploying ? (float)Math.Sin(_whine * Math.Tau) * 0.025f : 0;
-
-            float sample = (engine + turbo + whine) * engineVol;
-
-            if (!Positional)
+            if (w.Locked) lockup = 1;
+            switch (w.Surface.Type)
             {
-                // wind
-                _windLp += (rough - _windLp) * 0.05f;
-                sample += _windLp * Math.Min(1, speed * speed / 9000f) * 0.25f * fxVol;
-                // tyre squeal: narrow-band noise around 900 Hz
-                _squealEnv += (slip - _squealEnv) * 0.002f;
-                _squealPhase = (_squealPhase + (850 + rough * 120) / MixRate) % 1.0;
-                sample += (float)Math.Sin(_squealPhase * Math.Tau) * _squealEnv * 0.18f * fxVol;
-                // kerb rumble
-                _rumblePhase = (_rumblePhase + (22 + speed * 0.4) / MixRate) % 1.0;
-                sample += (_rumblePhase < 0.5 ? 1 : -1) * rumble * 0.08f * fxVol * Math.Min(1, speed / 15f);
+                case Track.SurfaceType.Kerb: kerb = 1; break;
+                case Track.SurfaceType.Gravel: gravel = 1; break;
+                case Track.SurfaceType.Grass: grass = 1; break;
             }
-            float v = MathF.Tanh(sample * 1.6f) * 0.7f;
-            buffer[i] = new Vector2(v, v);
         }
-        _playback.PushBuffer(buffer);
+        return new ChassisSoundState
+        {
+            SpeedMs = car.SpeedMs,
+            Slip = Math.Clamp(slip, 0, 1),
+            Lockup = lockup,
+            Kerb = kerb,
+            Gravel = gravel,
+            Grass = grass,
+            DrsOpen = car.DrsOpen,
+            Onboard = _onboard,
+        };
     }
 }

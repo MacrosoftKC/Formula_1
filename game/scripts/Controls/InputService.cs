@@ -25,7 +25,7 @@ public static class InputService
 
     public const string Throttle = "throttle", Brake = "brake", SteerLeft = "steer_left", SteerRight = "steer_right";
     public const string Clutch = "clutch", ShiftUp = "shift_up", ShiftDown = "shift_down", Drs = "drs", PitLimiter = "pit_limiter";
-    public const string Overtake = "overtake", ErsUp = "ers_mode_up", ErsDown = "ers_mode_down";
+    public const string TractionControl = "traction_control", Overtake = "overtake", ErsUp = "ers_mode_up", ErsDown = "ers_mode_down";
     public const string BiasFwd = "brake_bias_fwd", BiasRear = "brake_bias_rear", DiffUp = "diff_up", DiffDown = "diff_down";
     public const string MixUp = "fuel_mix_up", MixDown = "fuel_mix_down", EngBrakeUp = "engine_braking_up", EngBrakeDown = "engine_braking_down";
     public const string MfdToggle = "mfd_toggle", MfdUp = "mfd_up", MfdDown = "mfd_down", MfdLeft = "mfd_left", MfdRight = "mfd_right", MfdSelect = "mfd_select";
@@ -38,16 +38,17 @@ public static class InputService
 
     public static readonly ActionDef[] Actions =
     {
-        new(Throttle, "Throttle", "Driving", true, new[] { K(Key.W), K(Key.Up), A(JoyAxis.TriggerRight, 1) }),
-        new(Brake, "Brake", "Driving", true, new[] { K(Key.S), K(Key.Down), A(JoyAxis.TriggerLeft, 1) }),
-        new(SteerLeft, "Steer left", "Driving", true, new[] { K(Key.A), K(Key.Left), A(JoyAxis.LeftX, -1) }),
-        new(SteerRight, "Steer right", "Driving", true, new[] { K(Key.D), K(Key.Right), A(JoyAxis.LeftX, 1) }),
+        new(Throttle, "Throttle", "Driving", true, new[] { K(Key.Space), K(Key.W), K(Key.Up), A(JoyAxis.TriggerRight, 1) }),
+        new(Brake, "Brake", "Driving", true, new[] { K(Key.Shift), K(Key.S), K(Key.Down), A(JoyAxis.TriggerLeft, 1) }),
+        new(SteerLeft, "Steer left", "Driving", true, new[] { K(Key.Left), A(JoyAxis.LeftX, -1) }),
+        new(SteerRight, "Steer right", "Driving", true, new[] { K(Key.Right), A(JoyAxis.LeftX, 1) }),
         new(Clutch, "Clutch", "Driving", true, new[] { K(Key.K) }),
-        new(ShiftUp, "Shift up", "Driving", false, new[] { K(Key.E), J(JoyButton.RightShoulder) }),
-        new(ShiftDown, "Shift down", "Driving", false, new[] { K(Key.Q), J(JoyButton.LeftShoulder) }),
-        new(Drs, "DRS", "Driving", false, new[] { K(Key.Space), J(JoyButton.Y) }),
+        new(ShiftUp, "Shift up", "Driving", false, new[] { K(Key.D), K(Key.E), J(JoyButton.RightShoulder) }),
+        new(ShiftDown, "Shift down", "Driving", false, new[] { K(Key.A), K(Key.Q), J(JoyButton.LeftShoulder) }),
+        new(Drs, "DRS", "Driving", false, new[] { K(Key.G), J(JoyButton.Y) }),
         new(PitLimiter, "Pit limiter", "Driving", false, new[] { K(Key.L), J(JoyButton.B) }),
-        new(Overtake, "Overtake (ERS boost)", "Power unit", false, new[] { K(Key.Shift), J(JoyButton.X) }),
+        new(TractionControl, "Traction control (Off / Medium / Full)", "Driving", false, new[] { K(Key.T) }),
+        new(Overtake, "Overtake (ERS boost)", "Power unit", false, new[] { K(Key.Ctrl), J(JoyButton.X) }),
         new(ErsUp, "ERS mode +", "Power unit", false, new[] { K(Key.R) }),
         new(ErsDown, "ERS mode −", "Power unit", false, new[] { K(Key.F) }),
         new(MixUp, "Fuel mix +", "Power unit", false, new[] { K(Key.Period) }),

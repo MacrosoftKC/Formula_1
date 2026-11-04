@@ -22,8 +22,9 @@ public partial class PauseMenu : CanvasLayer
         dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _root.AddChild(dim);
         var panel = HudStyle.Box(_root, Vector2.Zero, new Vector2(420, 330), new Color(0.35f, 0.04f, 0.08f, 0.95f));
-        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
-        panel.Position = new Vector2(-210, -165);
+        panel.AnchorLeft = panel.AnchorRight = panel.AnchorTop = panel.AnchorBottom = 0.5f;
+        panel.OffsetLeft = -210; panel.OffsetRight = 210;
+        panel.OffsetTop = -165; panel.OffsetBottom = 165;
         var title = HudStyle.Label(panel, "PAUSED", 34, null, HorizontalAlignment.Center);
         title.Position = new Vector2(0, 16); title.Size = new Vector2(420, 50);
         var box = new VBoxContainer { Position = new Vector2(60, 90), Size = new Vector2(300, 220) };

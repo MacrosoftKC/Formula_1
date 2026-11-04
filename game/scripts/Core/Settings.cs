@@ -9,7 +9,7 @@ public enum CameraMode { Cockpit, Helmet, TCam, Nose, ChaseNear, ChaseFar, TV }
 public sealed class GameSettings
 {
     // ---- controls ----
-    public bool ManualTransmission { get; set; }
+    public bool ManualTransmission { get; set; } = true;
     public bool ManualClutch { get; set; }
     public float SteeringSensitivity { get; set; } = 1.0f;
     public float SteeringLinearity { get; set; } = 1.2f;
@@ -26,7 +26,7 @@ public sealed class GameSettings
     public bool Vibration { get; set; } = true;
 
     // ---- assists ----
-    public string TractionControl { get; set; } = "Medium"; // Off | Medium | Full
+    public string TractionControl { get; set; } = "Full"; // Off | Medium | Full
     public bool Abs { get; set; } = true;
     public bool BrakingAssist { get; set; }
     public bool SteeringAssist { get; set; } = true;

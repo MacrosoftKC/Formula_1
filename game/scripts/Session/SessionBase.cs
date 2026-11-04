@@ -108,7 +108,7 @@ public abstract partial class SessionBase : Node3D
         }
         else
         {
-            car.Driver = new PlayerDriver(settings) { Line = Line };
+            car.Driver = new PlayerDriver(settings) { Line = Line, OnMessage = t => Hud.ShowMessage(t, 2) };
             PlayerDriver.ApplyAssists(car, settings);
         }
         CameraRig.Target = car;
@@ -116,7 +116,7 @@ public abstract partial class SessionBase : Node3D
         Hud.Car = car;
         Hud.OtherCars = Cars;
         if (!Autotest || App.Instance.Arg("audio") != null)
-            AddChild(new EngineAudio { Name = "PlayerAudio", Target = car });
+            AddChild(new EngineAudio { Name = "PlayerAudio", Target = car, Rig = CameraRig });
         if (settings.ShowSteeringWheel) SteeringWheelDisplay.Attach(car);
     }
 }

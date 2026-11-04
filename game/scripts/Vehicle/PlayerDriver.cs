@@ -36,13 +36,23 @@ public sealed class PlayerDriver : IDriver
         };
     }
 
+    /// <summary>Shows a short on-screen message (set by the session; wired to the HUD).</summary>
+    public Action<string>? OnMessage { get; set; }
+
     public void Drive(Car car, double dt, ref CarInputs inputs)
     {
+        if (Godot.Input.IsActionJustPressed(InputService.TractionControl))
+        {
+            var next = (DrivingAssists.TractionLevel)(((int)car.Assists.TractionControl + 1) % 3);
+            car.Assists.TractionControl = next;
+            _settings.TractionControl = next.ToString();
+            OnMessage?.Invoke($"Traction control: {next}");
+        }
         if (!Enabled) { inputs.Throttle = 0; inputs.Brake = car.SpeedMs > 1 ? 0.3f : 0; inputs.Steer = 0; return; }
         var s = _settings;
 
-        float left = Godot.Input.GetActionStrength(InputService.SteerLeft, true);
-        float right = Godot.Input.GetActionStrength(InputService.SteerRight, true);
+        float left = Godot.Input.GetActionStrength(InputService.SteerLeft, false);
+        float right = Godot.Input.GetActionStrength(InputService.SteerRight, false);
         float steer;
         if (App.Instance.LastInputWasKeyboard)
         {
@@ -73,8 +83,8 @@ public sealed class PlayerDriver : IDriver
         }
         inputs.Steer = steer;
 
-        float throttle = Godot.Input.GetActionStrength(InputService.Throttle, true);
-        float brake = Godot.Input.GetActionStrength(InputService.Brake, true);
+        float throttle = Godot.Input.GetActionStrength(InputService.Throttle, false);
+        float brake = Godot.Input.GetActionStrength(InputService.Brake, false);
         if (s.InvertThrottleAxis) throttle = 1 - throttle;
         if (s.InvertBrakeAxis) brake = 1 - brake;
         throttle = throttle < s.ThrottleDeadzone ? 0 : throttle;
