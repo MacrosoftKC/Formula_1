@@ -1,13 +1,16 @@
 {
   // 2025 Australian Grand Prix line-up. Edit freely: names, numbers, colours and performance are all data-driven.
   // Car performance is relative to a reference car (1.0). Ratings are 0-100.
+  // Livery: every part colour is optional (see LiveryParts in core/F1.Core/Data/TeamsData.cs). Logo images can be added
+  // per team with "decals": { "sidepod": "res://liveries/my_logo.png", "engineCover": ..., "nose": ..., "chassisTop": ... }.
   "season": 2025,
   "event": "Australian Grand Prix",
   "teams": [
     {
       "id": "mclaren", "name": "McLaren", "shortName": "MCL", "powerUnit": "Mercedes",
       "primary": "#FF8000", "secondary": "#1F5FD6", "accent": "#111111", "rim": "#FF8000",
-      "livery": { "sidepod": "#1F5FD6", "frontWing": "#1F5FD6", "endplates": "#FF8000", "rearWing": "#1F5FD6", "halo": "#FF8000", "text": "#FFFFFF" },
+      "livery": { "sidepod": "#1F5FD6", "engineCover": "#1F5FD6", "engineCoverTop": "#FF8000", "airbox": "#FF8000", "frontWing": "#1F5FD6", "endplates": "#FF8000",
+                  "rearWing": "#1F5FD6", "halo": "#FF8000", "hub": "#FF8000", "text": "#FFFFFF" },
       "car": { "power": 1.000, "downforce": 1.000, "drag": 1.000, "tyreWear": 0.92, "reliability": 96, "pitStopTime": 2.3 },
       "drivers": [
         { "number": 4, "firstName": "Lando", "lastName": "Norris", "code": "NOR", "nationality": "GBR", "helmet": "#E8F04A",
@@ -19,7 +22,8 @@
     {
       "id": "ferrari", "name": "Ferrari", "shortName": "FER", "powerUnit": "Ferrari",
       "primary": "#D40000", "secondary": "#FFFFFF", "accent": "#FFDD00", "rim": "#D40000",
-      "livery": { "noseTip": "#FFDD00", "frontWing": "#D40000", "endplates": "#D40000", "rearWing": "#FFFFFF", "engineCover": "#D40000", "halo": "#D40000", "text": "#111111" },
+      "livery": { "noseTip": "#FFDD00", "frontWingMain": "#D40000", "frontWing": "#1C1C1E", "endplates": "#D40000", "rearWing": "#FFFFFF", "rearEndplates": "#D40000",
+                  "engineCover": "#D40000", "engineCoverTop": "#EDEDED", "halo": "#D40000", "stripe": "#FFFFFF", "floorEdge": "#FFDD00", "text": "#111111" },
       "car": { "power": 1.004, "downforce": 0.988, "drag": 0.995, "tyreWear": 0.98, "reliability": 94, "pitStopTime": 2.4 },
       "drivers": [
         { "number": 16, "firstName": "Charles", "lastName": "Leclerc", "code": "LEC", "nationality": "MON", "helmet": "#C8102E",
@@ -31,7 +35,8 @@
     {
       "id": "mercedes", "name": "Mercedes", "shortName": "MER", "powerUnit": "Mercedes",
       "primary": "#111111", "secondary": "#C8CCCE", "accent": "#00D2BE", "rim": "#00D2BE",
-      "livery": { "airbox": "#C8102E", "frontWing": "#00D2BE", "endplates": "#7A0F1E", "rearWing": "#111111", "halo": "#111111", "text": "#FFFFFF" },
+      "livery": { "airbox": "#C8102E", "frontWing": "#00D2BE", "endplates": "#7A0F1E", "rearWing": "#111111", "rearWingFlap": "#00D2BE", "rearEndplates": "#111111",
+                  "engineCoverTop": "#3A3D41", "halo": "#111111", "stripe": "#00D2BE", "text": "#FFFFFF" },
       "car": { "power": 1.000, "downforce": 0.992, "drag": 0.990, "tyreWear": 0.97, "reliability": 96, "pitStopTime": 2.4 },
       "drivers": [
         { "number": 63, "firstName": "George", "lastName": "Russell", "code": "RUS", "nationality": "GBR", "helmet": "#2B2B8F",
@@ -43,7 +48,8 @@
     {
       "id": "red_bull", "name": "Red Bull Racing", "shortName": "RBR", "powerUnit": "Honda RBPT",
       "primary": "#1B2A5C", "secondary": "#DB0A40", "accent": "#FFC906", "rim": "#DB0A40",
-      "livery": { "noseTip": "#FFC906", "airbox": "#FFC906", "frontWing": "#1B2A5C", "endplates": "#1B2A5C", "rearWing": "#1B2A5C", "halo": "#1B2A5C", "text": "#DB0A40" },
+      "livery": { "noseTip": "#FFC906", "noseTipLength": 1.0, "airbox": "#FFC906", "airboxLength": 0.8, "floorFlash": "#FFC906", "frontWingMain": "#1B2A5C", "frontWing": "#1B2A5C", "endplates": "#1B2A5C", "rearWing": "#1B2A5C", "halo": "#1B2A5C",
+                  "stripe": "#DB0A40", "text": "#DB0A40", "logo": "Red Bull", "frontWingLogo": true },
       "car": { "power": 1.002, "downforce": 0.990, "drag": 0.985, "tyreWear": 1.00, "reliability": 95, "pitStopTime": 2.2 },
       "drivers": [
         { "number": 1, "firstName": "Max", "lastName": "Verstappen", "code": "VER", "nationality": "NED", "helmet": "#E5332A",

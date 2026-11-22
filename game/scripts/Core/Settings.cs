@@ -39,7 +39,7 @@ public sealed class GameSettings
     public CameraMode DefaultCamera { get; set; } = CameraMode.Cockpit;
     public Dictionary<string, float> Fov { get; set; } = new()
     {
-        [nameof(CameraMode.Cockpit)] = 78, [nameof(CameraMode.Helmet)] = 74, [nameof(CameraMode.TCam)] = 70,
+        [nameof(CameraMode.Cockpit)] = 64, [nameof(CameraMode.Helmet)] = 66, [nameof(CameraMode.TCam)] = 70,
         [nameof(CameraMode.Nose)] = 72, [nameof(CameraMode.ChaseNear)] = 70, [nameof(CameraMode.ChaseFar)] = 68,
         [nameof(CameraMode.TV)] = 40,
     };
