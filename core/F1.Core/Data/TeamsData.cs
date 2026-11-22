@@ -32,6 +32,8 @@ public sealed class TeamData
 public sealed class LiveryParts
 {
     public string? NoseTip { get; set; }
+    /// <summary>How far back from the tip the NoseTip colour runs, in metres (default 0.44).</summary>
+    public double NoseTipLength { get; set; } = 0.44;
     public string? Sidepod { get; set; }
     public string? EngineCover { get; set; }
     public string? Airbox { get; set; }
@@ -40,6 +42,36 @@ public sealed class LiveryParts
     public string? RearWing { get; set; }
     public string? Halo { get; set; }
     public string? Text { get; set; }
+    /// <summary>Top of the engine cover behind the airbox; defaults to EngineCover.</summary>
+    public string? EngineCoverTop { get; set; }
+    /// <summary>Front wing main plane; defaults to carbon. FrontWing colours the flaps above it.</summary>
+    public string? FrontWingMain { get; set; }
+    /// <summary>Rear wing upper flap (the DRS flap); defaults to RearWing.</summary>
+    public string? RearWingFlap { get; set; }
+    /// <summary>Rear wing endplates; defaults to a darker RearWing.</summary>
+    public string? RearEndplates { get; set; }
+    /// <summary>Pinstripe along the chassis and sidepods; none when unset.</summary>
+    public string? Stripe { get; set; }
+    /// <summary>Accent strip along the floor edges; none when unset.</summary>
+    public string? FloorEdge { get; set; }
+    /// <summary>Wheel hub centre; defaults to Accent. The ring round the wheel cover uses the team's Rim colour.</summary>
+    public string? Hub { get; set; }
+    /// <summary>T-camera on top of the airbox; defaults to the FIA scheme (black for the first driver, fluorescent yellow for the second).</summary>
+    public string? Tcam { get; set; }
+    /// <summary>Text printed on the sidepods and rear wing; defaults to the team name.</summary>
+    public string? Logo { get; set; }
+    /// <summary>Also print the logo on the front wing main plane.</summary>
+    public bool FrontWingLogo { get; set; }
+    /// <summary>How far back from the airbox intake the Airbox colour runs over the top of the engine cover, in metres
+    /// (default 0.32: just the airbox).</summary>
+    public double AirboxLength { get; set; } = 0.32;
+    /// <summary>Flash of colour low on the front of the sidepods, by the floor; none when unset.</summary>
+    public string? FloorFlash { get; set; }
+    /// <summary>
+    /// Optional logo images (PNG with transparency) by slot: "nose", "engineCover", "sidepod", "chassisTop". Paths may be
+    /// res://, user:// or absolute. A "sidepod" decal replaces the sidepod lettering.
+    /// </summary>
+    public Dictionary<string, string>? Decals { get; set; }
 }
 
 /// <summary>Relative car performance multipliers (1.0 = reference car).</summary>

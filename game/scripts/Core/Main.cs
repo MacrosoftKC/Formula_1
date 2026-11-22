@@ -2,7 +2,8 @@ using Godot;
 
 namespace F1.Game.Core;
 
-/// <summary>Entry scene: routes to the main menu, or runs an automated test when started with --autotest=NAME.</summary>
+/// <summary>Entry scene: routes to the main menu, or straight to a scene / automated test (--scene=menu|tt|cars|track,
+/// --autotest=boot|tt|ttplayer|trackshots|carshots|menushot).</summary>
 public partial class Main : Node
 {
     public override void _Ready()
@@ -21,14 +22,23 @@ public partial class Main : Node
             game.ChangeScene("res://scenes/TrackPreview.tscn");
             return;
         }
-        if (test == "tt" || game.Arg("scene") == "tt")
+        if (test == "menushot" || game.Arg("scene") == "menu")
         {
-            game.Session = new SessionConfig { Mode = SessionMode.TimeTrial };
+            game.ChangeScene("res://scenes/MainMenu.tscn");
+            return;
+        }
+        if (test == "carshots" || game.Arg("scene") == "cars")
+        {
+            game.ChangeScene("res://scenes/CarShowroom.tscn");
+            return;
+        }
+        if (test is "tt" or "ttplayer" || game.Arg("scene") == "tt")
+        {
+            game.Session = new SessionConfig { Mode = SessionMode.TimeTrial, TeamId = game.Arg("team") ?? "mclaren" };
             game.ChangeScene("res://scenes/TimeTrial.tscn");
             return;
         }
         GD.Print("Low-Poly F1 started");
-        // main menu arrives in M7; go straight to Time Trial for now
-        game.ChangeScene("res://scenes/TimeTrial.tscn");
+        game.ChangeScene("res://scenes/MainMenu.tscn");
     }
 }

@@ -24,6 +24,17 @@ public partial class CameraRig : Node3D
     private bool _initialised;
     private static readonly CameraMode[] Cycle = { CameraMode.Cockpit, CameraMode.Helmet, CameraMode.TCam, CameraMode.Nose, CameraMode.ChaseNear, CameraMode.ChaseFar, CameraMode.TV };
 
+    /// <summary>Cockpit eye in the car's local frame (before seat offsets): above the halo hoop, so the hoop arches
+    /// just under the horizon with the pillar, chassis logo and steering wheel stacked below it.</summary>
+    public static readonly Vector3 CockpitEye = new(0, 1.07f, 0.13f);
+    public const float CockpitPitchDeg = -13f;
+    /// <summary>Over-the-shoulder onboard: just behind and left of the driver's helmet (the engine cover is turned
+    /// shadow-only in this view), looking over the helmet through the halo.</summary>
+    public static readonly Vector3 HelmetEye = new(-0.2f, 1.12f, 0.25f);
+    public const float HelmetPitchDeg = -16f;
+    /// <summary>Turned right, so the helmet fills the right of the frame with the steering wheel beside it.</summary>
+    public const float HelmetYawDeg = -8f;
+
     public override void _Ready()
     {
         Camera = new Camera3D { Name = "Camera", Current = true, Far = 9000 };
@@ -36,7 +47,11 @@ public partial class CameraRig : Node3D
         Mode = mode;
         Camera.Fov = S.FovFor(mode);
         Camera.Near = mode is CameraMode.Cockpit or CameraMode.Helmet ? 0.03f : 0.1f;
-        if (Target?.Model is { } model) model.DriverHead.Visible = mode != CameraMode.Cockpit;
+        if (Target?.Model is { } model)
+        {
+            model.DriverHead.Visible = mode != CameraMode.Cockpit;
+            model.EngineCover.CastShadow = mode == CameraMode.Helmet ? GeometryInstance3D.ShadowCastingSetting.ShadowsOnly : GeometryInstance3D.ShadowCastingSetting.On;
+        }
         _initialised = false;
     }
 
@@ -67,16 +82,16 @@ public partial class CameraRig : Node3D
                 var targetHead = new Vector2(-Target.LateralG * 0.012f, -Target.LongitudinalG * 0.01f) * S.HeadMovement;
                 _headOffset = _headOffset.Lerp(targetHead, Math.Min(1, dt * 6));
                 var shake = Shake(dt) * S.CameraShake;
-                var local = new Vector3(_headOffset.X + shake.X, 0.8f + S.SeatHeight + shake.Y, 0.02f - S.SeatForward + _headOffset.Y);
-                var b = basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(-5f)) * new Basis(Vector3.Forward, -Target.LateralG * 0.006f * S.HeadMovement);
+                var local = new Vector3(_headOffset.X + shake.X, CockpitEye.Y + S.SeatHeight + shake.Y, CockpitEye.Z - S.SeatForward + _headOffset.Y);
+                var b = basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(CockpitPitchDeg)) * new Basis(Vector3.Forward, -Target.LateralG * 0.006f * S.HeadMovement);
                 Camera.GlobalTransform = new Transform3D(b, car * local);
                 break;
             }
             case CameraMode.Helmet:
-                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(-6)), car * new Vector3(0, 1.08f, 0.3f));
+                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw + Mathf.DegToRad(HelmetYawDeg)) * new Basis(Vector3.Right, Mathf.DegToRad(HelmetPitchDeg)), car * HelmetEye);
                 break;
             case CameraMode.TCam:
-                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(-4)), car * new Vector3(0, 1.13f, 0.18f));
+                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(-4)), car * new Vector3(0, 1.18f, 0.18f));
                 break;
             case CameraMode.Nose:
                 Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw), car * new Vector3(0, 0.42f, -2.35f));

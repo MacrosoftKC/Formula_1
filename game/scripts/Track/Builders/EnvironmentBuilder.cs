@@ -9,8 +9,8 @@ public static class EnvironmentBuilder
     {
         var sky = new ProceduralSkyMaterial
         {
-            SkyTopColor = new Color(0.66f, 0.79f, 0.93f),
-            SkyHorizonColor = new Color(0.93f, 0.95f, 0.97f),
+            SkyTopColor = new Color(0.76f, 0.84f, 0.93f),
+            SkyHorizonColor = new Color(0.94f, 0.95f, 0.97f),
             GroundBottomColor = new Color(0.55f, 0.62f, 0.5f),
             GroundHorizonColor = new Color(0.86f, 0.89f, 0.92f),
             SunAngleMax = 30,
@@ -21,7 +21,8 @@ public static class EnvironmentBuilder
             BackgroundMode = Godot.Environment.BGMode.Sky,
             Sky = new Sky { SkyMaterial = sky },
             AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-            AmbientLightSkyContribution = 0.75f,
+            AmbientLightSkyContribution = 0.55f,
+            AmbientLightColor = new Color(0.9f, 0.9f, 0.91f),
             AmbientLightEnergy = 1.0f,
             ReflectedLightSource = Godot.Environment.ReflectionSource.Sky,
             TonemapMode = Godot.Environment.ToneMapper.Filmic,
@@ -36,8 +37,8 @@ public static class EnvironmentBuilder
             GlowIntensity = 0.35f,
             GlowBloom = 0.02f,
             AdjustmentEnabled = true,
-            AdjustmentSaturation = 1.25f,
-            AdjustmentContrast = 1.08f,
+            AdjustmentSaturation = 1.0f,
+            AdjustmentContrast = 1.04f,
         };
         var worldEnv = new WorldEnvironment { Name = "WorldEnvironment", Environment = env };
         parent.AddChild(worldEnv);
