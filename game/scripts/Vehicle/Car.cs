@@ -37,7 +37,8 @@ public partial class Car : RigidBody3D
     public const int FL = 0, FR = 1, RL = 2, RR = 3;
     public const float FrontAxleZ = -1.8f, RearAxleZ = 1.8f;
     public const float FrontTrackHalf = 0.80f, RearTrackHalf = 0.78f;
-    public const float WheelRadius = 0.36f;
+    public const float WheelRadius = 0.36f, W11WheelRadius = 0.335f;
+    private double ChassisMass => Team.Id == TeamData.W11 ? 746 : DryMass;
     public const float HardpointHeight = 0.47f;
     public const double RestLength = 0.12, MaxDroop = 0.15, BumpStop = 0.055;
     public const double MaxSteerAngle = 0.33;
@@ -128,7 +129,7 @@ public partial class Car : RigidBody3D
 
     public override void _Ready()
     {
-        Mass = (float)(DryMass + PU.FuelKg);
+        Mass = (float)(ChassisMass + PU.FuelKg);
         CenterOfMassMode = CenterOfMassModeEnum.Custom;
         CenterOfMass = new Vector3(0, 0.28f, 0.18f);
         Inertia = new Vector3(1150, 1250, 280);
@@ -152,13 +153,18 @@ public partial class Car : RigidBody3D
         wings.Position = new Vector3(0, 0.3f, 0.1f);
         AddChild(wings);
 
+        bool w11 = Team.Id == TeamData.W11;
+        float frontTrack = w11 ? 0.8475f : FrontTrackHalf;
+        float rearTrack = w11 ? 0.7975f : RearTrackHalf;
+        float frontZ = w11 ? -1.83f : FrontAxleZ;
+        float rearZ = w11 ? 1.83f : RearAxleZ;
         Vector3[] hp =
         {
-            new(-FrontTrackHalf, HardpointHeight, FrontAxleZ), new(FrontTrackHalf, HardpointHeight, FrontAxleZ),
-            new(-RearTrackHalf, HardpointHeight, RearAxleZ), new(RearTrackHalf, HardpointHeight, RearAxleZ),
+            new(-frontTrack, HardpointHeight, frontZ), new(frontTrack, HardpointHeight, frontZ),
+            new(-rearTrack, HardpointHeight, rearZ), new(rearTrack, HardpointHeight, rearZ),
         };
         for (int i = 0; i < 4; i++)
-            Wheels[i] = new Wheel { Hardpoint = hp[i], Front = i < 2, Left = i % 2 == 0, Radius = WheelRadius, SurfaceHint = -1, CenterDistance = RestLength };
+            Wheels[i] = new Wheel { Hardpoint = hp[i], Front = i < 2, Left = i % 2 == 0, Radius = w11 ? W11WheelRadius : WheelRadius, SurfaceHint = -1, CenterDistance = RestLength };
 
         Model = new CarModel { Name = "Model" };
         AddChild(Model);
@@ -194,7 +200,7 @@ public partial class Car : RigidBody3D
     {
         var fwd = -GlobalBasis.Z;
         LinearVelocity = fwd * speed;
-        for (int i = 0; i < 4; i++) Wheels[i].Omega = speed / WheelRadius;
+        for (int i = 0; i < 4; i++) Wheels[i].Omega = speed / Wheels[i].Radius;
     }
 
     public override void _PhysicsProcess(double delta)
@@ -269,8 +275,8 @@ public partial class Car : RigidBody3D
 
         // ---- aero ----
         var (dfFront, dfRear, drag) = Aero.Forces(Math.Max(0, vForward), DrsOpen, Slipstream, DirtyAir, Setup.FloorFactor);
-        ApplyForce(-up * (float)dfFront, xf.Basis * new Vector3(0, 0.1f, FrontAxleZ));
-        ApplyForce(-up * (float)dfRear, xf.Basis * new Vector3(0, 0.1f, RearAxleZ));
+        ApplyForce(-up * (float)dfFront, xf.Basis * new Vector3(0, 0.1f, Wheels[FL].Hardpoint.Z));
+        ApplyForce(-up * (float)dfRear, xf.Basis * new Vector3(0, 0.1f, Wheels[RL].Hardpoint.Z));
         if (SpeedMs > 0.5f) ApplyCentralForce(-vel.Normalized() * (float)drag);
         DebugDrag = drag;
 
@@ -336,7 +342,7 @@ public partial class Car : RigidBody3D
         OdometerM += SpeedMs * dt;
 
         _fuelMassTimer += dt;
-        if (_fuelMassTimer > 1.0) { _fuelMassTimer = 0; Mass = (float)(DryMass + PU.FuelKg); }
+        if (_fuelMassTimer > 1.0) { _fuelMassTimer = 0; Mass = (float)(ChassisMass + PU.FuelKg); }
 
         Model?.UpdateVisuals(this, dt);
     }
@@ -387,7 +393,7 @@ public partial class Car : RigidBody3D
         if (Box.Shifting) return;
         if (Box.Gear <= 0) { Box.SetGear(1); return; }
         // shift on road speed, not wheel speed, so wheelspin doesn't run the car up the gears
-        double roadOmega = Math.Max(0, LinearVelocity.Dot(-GlobalBasis.Z)) / WheelRadius;
+        double roadOmega = Math.Max(0, LinearVelocity.Dot(-GlobalBasis.Z)) / Wheels[RL].Radius;
         double rearOmega = Math.Min(Math.Abs((Wheels[RL].Omega + Wheels[RR].Omega) * 0.5), roadOmega * 1.08);
         double rpmNow = rearOmega * Box.OverallRatio() * 60 / Math.Tau;
         if (rpmNow > 11900 && Box.Gear < Box.TopGear && ClutchEngagement > 0.99) { Box.ShiftUp(); return; }

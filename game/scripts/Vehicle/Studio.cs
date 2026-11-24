@@ -6,14 +6,18 @@ namespace F1.Game.Vehicle;
 /// Seamless light-grey studio, the car-select look used by the showroom and the main menu: the lit floor is calibrated
 /// to the backdrop grey (217, 217, 219), key light from the front-left above, soft contact shadows.
 /// </summary>
-public static class Studio
+public sealed class Studio
 {
     public static readonly Color Backdrop = new(0.851f, 0.851f, 0.859f);
+    private readonly Godot.Environment _environment;
+    private readonly DirectionalLight3D _key, _fill;
+    private readonly StandardMaterial3D _floorPaint;
+    private Sky? _studioSky;
+    public MeshInstance3D Floor { get; }
 
-    /// <summary>Adds the environment, key light and floor to <paramref name="parent"/>; returns the floor.</summary>
-    public static MeshInstance3D Build(Node3D parent)
+    public Studio(Node3D parent)
     {
-        var env = new Godot.Environment
+        _environment = new Godot.Environment
         {
             BackgroundMode = Godot.Environment.BGMode.Color,
             BackgroundColor = Backdrop,
@@ -27,26 +31,52 @@ public static class Studio
             AdjustmentSaturation = 0.95f,
             AdjustmentContrast = 1.0f,
         };
-        parent.AddChild(new WorldEnvironment { Name = "Studio", Environment = env });
-        var key = new DirectionalLight3D
+        parent.AddChild(new WorldEnvironment { Name = "Studio", Environment = _environment });
+        _key = new DirectionalLight3D
         {
             Name = "Key", LightEnergy = 0.32f, LightColor = new Color(1f, 0.99f, 0.97f), ShadowEnabled = true,
             DirectionalShadowMode = DirectionalLight3D.ShadowMode.Orthogonal, DirectionalShadowMaxDistance = 30, ShadowBlur = 3.5f,
         };
-        parent.AddChild(key);
-        key.GlobalBasis = Basis.LookingAt(new Vector3(0.45f, -1.0f, 0.55f), Vector3.Up);
-        var floor = new MeshInstance3D
+        parent.AddChild(_key);
+        _key.GlobalBasis = Basis.LookingAt(new Vector3(0.45f, -1.0f, 0.55f), Vector3.Up);
+        _fill = new DirectionalLight3D
+        {
+            Name = "StudioFill", LightEnergy = 0.38f, LightColor = Color.FromHtml("#D4DEFF"), Visible = false,
+        };
+        parent.AddChild(_fill);
+        _fill.GlobalBasis = Basis.LookingAt(new Vector3(0.65f, -0.55f, -0.6f), Vector3.Up);
+        _floorPaint = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.73f, 0.73f, 0.737f), Roughness = 1.0f, MetallicSpecular = 0.0f,
+            DiffuseMode = BaseMaterial3D.DiffuseModeEnum.Lambert,
+        };
+        Floor = new MeshInstance3D
         {
             Name = "Floor",
             Mesh = new PlaneMesh { Size = new Vector2(4000, 4000) },
-            // Lambert (no grazing-angle brightening), albedo calibrated so the lit floor lands on the backdrop grey
-            MaterialOverride = new StandardMaterial3D
-            {
-                AlbedoColor = new Color(0.73f, 0.73f, 0.737f), Roughness = 1.0f, MetallicSpecular = 0.0f,
-                DiffuseMode = BaseMaterial3D.DiffuseModeEnum.Lambert,
-            },
+            MaterialOverride = _floorPaint,
         };
-        parent.AddChild(floor);
-        return floor;
+        parent.AddChild(Floor);
+    }
+
+    public void LightForTeam(string teamId)
+    {
+        bool detailed = teamId is "red_bull" or F1.Core.Data.TeamData.W11;
+        _environment.BackgroundColor = detailed ? Color.FromHtml("#D7D9E5") : Backdrop;
+        _environment.AmbientLightEnergy = detailed ? 0.46f : 0.42f;
+        _environment.SsaoEnabled = detailed;
+        _environment.SsaoRadius = 0.42f;
+        _environment.SsaoIntensity = 1.5f;
+        if (detailed)
+            _environment.Sky = _studioSky ??= new Sky { SkyMaterial = new ProceduralSkyMaterial {
+                SkyTopColor = Color.FromHtml("#CDD4EA"), SkyHorizonColor = Color.FromHtml("#667089"),
+                GroundHorizonColor = Color.FromHtml("#454B5C"), GroundBottomColor = Color.FromHtml("#21232C"),
+            }};
+        _environment.ReflectedLightSource = detailed ? Godot.Environment.ReflectionSource.Sky : Godot.Environment.ReflectionSource.Disabled;
+        _key.LightEnergy = detailed ? 1.04f : 0.32f;
+        _key.GlobalBasis = Basis.LookingAt(detailed ? new Vector3(-0.36f, -1, 0.68f) : new Vector3(0.45f, -1, 0.55f), Vector3.Up);
+        _key.ShadowBlur = detailed ? 1.35f : 3.5f;
+        _fill.Visible = detailed;
+        _floorPaint.AlbedoColor = detailed ? Color.FromHtml("#BCC0CB") : new Color(0.73f, 0.73f, 0.737f);
     }
 }

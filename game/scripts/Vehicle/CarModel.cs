@@ -20,11 +20,15 @@ public partial class CarModel : Node3D
     private readonly Node3D[] _wheelSpin = new Node3D[4];
     private Node3D _drsFlap = null!;
     private Node3D _steeringWheel = null!;
+    private Node3D? _driverGloves;
     private MeshInstance3D _rainLight = null!;
     private StandardMaterial3D _rainOn = null!, _rainOff = null!;
     private float _drsAngle;
+    private float _wheelHubOffset, _steeringWheelTilt;
     private double _blink;
 
+    public Vector3 OnboardOffset { get; private set; }
+    private bool _emptyShowroomSeat;
     public Node3D FrontWing { get; private set; } = null!;
     /// <summary>Node at the steering wheel's display; the cockpit camera can attach a screen here.</summary>
     public Node3D WheelDisplay { get; private set; } = null!;
@@ -89,6 +93,70 @@ public partial class CarModel : Node3D
     private static Color C(string? hex, Color fallback) => string.IsNullOrEmpty(hex) ? fallback : Units.Hex(hex);
 
     public void Build(TeamData team, DriverData driver)
+    {
+        if (team.Id is "red_bull" or TeamData.W11)
+            BuildAuthoredCar(team, driver);
+        else
+            BuildTeamModel(team, driver);
+        _steeringWheelTilt = _steeringWheel.Rotation.X;
+    }
+
+    private void BuildAuthoredCar(TeamData team, DriverData driver)
+    {
+        bool w11 = team.Id == TeamData.W11;
+        string path = w11 ? "res://art/cars/w11/W11.scn" : "res://art/cars/rb20/RB20.scn";
+        var car = GD.Load<PackedScene>(path).Instantiate<Node3D>();
+        _emptyShowroomSeat = !w11;
+        if (w11) OnboardOffset = new Vector3(0, -0.164f, 0);
+        AddChild(car);
+        FrontWing = car.GetNode<Node3D>("FrontWing");
+        EngineCover = car.GetNode<MeshInstance3D>("EngineCover");
+        _drsFlap = car.GetNode<Node3D>("DrsFlap");
+        _steeringWheel = car.GetNode<Node3D>("SteeringWheel");
+        _driverGloves = _steeringWheel.GetNode<Node3D>("Gloves");
+        WheelDisplay = _steeringWheel.GetNode<Node3D>("Display");
+        var helmet = car.GetNode<MeshInstance3D>("Helmet");
+        DriverHead = helmet;
+        if (!w11)
+        {
+            var noseNormal = new Vector3(0, 1, -0.18f).Normalized();
+            AddLabel(car, driver.Number.ToString(), new Vector3(0, 0.682f, -1.55f),
+                LabelBasis(noseNormal, Vector3.Right.Cross(noseNormal)), Units.Hex("#F52939"), 0.215f, 0.205f);
+
+            for (int i = 0; i < helmet.Mesh.GetSurfaceCount(); i++)
+            {
+                if (helmet.Mesh.SurfaceGetMaterial(i) is StandardMaterial3D { ResourceName: "Driver trim" } trim)
+                {
+                    var paint = (StandardMaterial3D)trim.Duplicate();
+                    paint.AlbedoColor = Units.Hex(driver.Helmet);
+                    helmet.SetSurfaceOverrideMaterial(i, paint);
+                }
+            }
+        }
+
+        _rainLight = car.GetNode<MeshInstance3D>("RainLight");
+        _rainOff = Materials.Solid(Units.Hex("#951E2A"), 0.46f);
+        _rainOn = Materials.Emissive(Units.Hex("#FF422A"), 5f);
+        string[] corners = { "FL", "FR", "RL", "RR" };
+        for (int i = 0; i < corners.Length; i++)
+        {
+            string corner = corners[i];
+            _wheelRoots[i] = car.GetNode<Node3D>($"Wheel{corner}");
+            _wheelSteer[i] = _wheelRoots[i].GetNode<Node3D>($"Steer{corner}");
+            _wheelSpin[i] = _wheelSteer[i].GetNode<Node3D>($"Spin{corner}");
+        }
+        // Align the visual slicks with the simulation contact plane through suspension travel.
+        _wheelHubOffset = _wheelRoots[Car.FL].Position.Y - (w11 ? Car.W11WheelRadius : Car.WheelRadius);
+    }
+
+    /// <summary>The RB20 is displayed with an empty seat in the exterior model-sheet views.</summary>
+    public void SetShowroomView(bool onboard)
+    {
+        DriverHead.Visible = !_emptyShowroomSeat && !onboard;
+        if (_driverGloves != null) _driverGloves.Visible = onboard;
+    }
+
+    private void BuildTeamModel(TeamData team, DriverData driver)
     {
         var lv = team.Livery;
         var primary = Units.Hex(team.Primary);
@@ -745,7 +813,7 @@ public partial class CarModel : Node3D
         {
             var w = car.Wheels[i];
             var p = _wheelRoots[i].Position;
-            p.Y = Car.HardpointHeight - (float)w.CenterDistance;
+            p.Y = Car.HardpointHeight - (float)w.CenterDistance + _wheelHubOffset;
             _wheelRoots[i].Position = p;
             _wheelSteer[i].Rotation = new Vector3(0, (float)w.SteerAngle, 0);
             _wheelSpin[i].Rotation = new Vector3(-(float)(w.SpinAngle % Math.Tau), 0, 0);
@@ -753,7 +821,7 @@ public partial class CarModel : Node3D
         float target = car.DrsOpen ? 0.75f : 0f;
         _drsAngle = Mathf.MoveToward(_drsAngle, target, (float)dt * 6f);
         _drsFlap.Rotation = new Vector3(_drsAngle, 0, 0);
-        _steeringWheel.Rotation = new Vector3(Mathf.DegToRad(SteeringWheelTiltDeg), 0, 0);
+        _steeringWheel.Rotation = new Vector3(_steeringWheelTilt, 0, 0);
         _steeringWheel.RotateObjectLocal(Vector3.Forward, -car.SteerApplied * 1.6f);
 
         bool rain = car.Wetness > 0.15f;

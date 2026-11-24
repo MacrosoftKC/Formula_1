@@ -1,4 +1,5 @@
 using F1.Core.Audio;
+using F1.Core.Data;
 using F1.Game.Camera;
 using F1.Game.Core;
 using F1.Game.Vehicle;
@@ -24,6 +25,7 @@ public partial class EngineAudio : Node3D
     private const float SpeedOfSound = 343f;
     private AudioStreamGeneratorPlayback? _playback;
     private HybridV6Synth _engine = null!;
+    private W11EngineVoice? _w11;
     private ChassisFxSynth _fx = null!;
     private float[] _eng = Array.Empty<float>(), _l = Array.Empty<float>(), _r = Array.Empty<float>();
     private Vector2[] _buffer = Array.Empty<Vector2>();
@@ -36,21 +38,41 @@ public partial class EngineAudio : Node3D
         _engine = new HybridV6Synth(MixRate, (uint)(GetInstanceId() & 0xFFFF) + 1);
         _fx = new ChassisFxSynth(MixRate);
         var gen = new AudioStreamGenerator { MixRate = MixRate, BufferLength = 0.1f };
+        _playback = (AudioStreamGeneratorPlayback)StartStream(gen, "GeneratedAudio");
+        if (Target != null)
+        {
+            _lastGear = Target.Gear;
+            if (Target.Team.Id == TeamData.W11)
+            {
+                var stream = new AudioStreamPolyphonic { Polyphony = W11EngineVoice.Voices };
+                _w11 = new W11EngineVoice((AudioStreamPlaybackPolyphonic)StartStream(stream, "W11Onboard"), Target);
+                ProcessPhysicsPriority = Target.ProcessPhysicsPriority + 1;
+            }
+        }
+    }
+
+    private AudioStreamPlayback StartStream(AudioStream stream, string name)
+    {
         if (Positional)
         {
-            var p3 = new AudioStreamPlayer3D { Stream = gen, UnitSize = 18, MaxDistance = 500, Bus = "Master", AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance };
-            AddChild(p3);
-            p3.Play();
-            _playback = (AudioStreamGeneratorPlayback)p3.GetStreamPlayback();
+            var player = new AudioStreamPlayer3D { Name = name, Stream = stream, UnitSize = 18, MaxDistance = 500, Bus = "Master",
+                AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance };
+            AddChild(player);
+            player.Play();
+            return player.GetStreamPlayback();
         }
-        else
-        {
-            var p = new AudioStreamPlayer { Stream = gen, Bus = "Master" };
-            AddChild(p);
-            p.Play();
-            _playback = (AudioStreamGeneratorPlayback)p.GetStreamPlayback();
-        }
-        if (Target != null) _lastGear = Target.Gear;
+
+        var stereo = new AudioStreamPlayer { Name = name, Stream = stream, Bus = "Master" };
+        AddChild(stereo);
+        stereo.Play();
+        return stereo.GetStreamPlayback();
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        if (_w11 == null || Target == null || !IsInstanceValid(Target)) return;
+        float gain = App.Instance.Settings.EngineVolume * _gain * (Positional ? 1.0f : 0.72f);
+        _w11.Update(Target, (float)delta, _onboard, _doppler, _air, gain);
     }
 
     public override void _Process(double delta)
@@ -89,10 +111,12 @@ public partial class EngineAudio : Node3D
             _buffer = new Vector2[frames];
         }
         var eng = _eng.AsSpan(0, frames);
-        _engine.Render(eng);
+        float synthGain = _w11?.SynthGain ?? 1;
+        if (synthGain > 0.001f) _engine.Render(eng);
+        else eng.Clear();
 
         var s = App.Instance.Settings;
-        float engineVol = s.EngineVolume * _gain * (Positional ? 1.1f : 0.6f);
+        float engineVol = s.EngineVolume * _gain * synthGain * (Positional ? 1.1f : 0.6f);
         if (Positional)
         {
             for (int i = 0; i < frames; i++)
@@ -124,7 +148,7 @@ public partial class EngineAudio : Node3D
             onboard = Rig.Mode switch
             {
                 CameraMode.Cockpit or CameraMode.Helmet => 1f,
-                CameraMode.TCam => 0.75f,
+                CameraMode.TCam => _w11 == null ? 0.75f : 1f,
                 CameraMode.Nose => 0.55f,
                 CameraMode.ChaseNear => 0.15f,
                 _ => 0f,

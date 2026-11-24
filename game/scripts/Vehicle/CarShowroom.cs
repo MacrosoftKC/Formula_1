@@ -13,7 +13,7 @@ namespace F1.Game.Vehicle;
 public partial class CarShowroom : Node3D
 {
     private Camera3D _cam = null!;
-    private MeshInstance3D _floor = null!;
+    private Studio _studio = null!;
     private CarModel? _model;
     private List<TeamData> _teams = null!;
     private int _team;
@@ -41,12 +41,12 @@ public partial class CarShowroom : Node3D
 
     public override void _Ready()
     {
-        _floor = Studio.Build(this);
+        _studio = new Studio(this);
 
         _cam = new Camera3D { Name = "Camera", Fov = 50, Near = 0.05f, Far = 500, Current = true };
         AddChild(_cam);
 
-        _teams = App.Instance.Teams.Teams;
+        _teams = App.Instance.AllCars.ToList();
         if (App.Instance.Arg("team") is { } id)
         {
             int i = _teams.FindIndex(t => t.Id == id);
@@ -73,19 +73,44 @@ public partial class CarShowroom : Node3D
         _team = (index + _teams.Count) % _teams.Count;
         _model?.QueueFree();
         var team = _teams[_team];
+        _studio.LightForTeam(team.Id);
         _model = new CarModel { Name = "Car" };
         AddChild(_model);
         _model.Build(team, team.Drivers[0]);
-        GetWindow().Title = $"Car showroom — {team.Name} #{team.Drivers[0].Number}";
+        string category = App.Instance.ClassicCars.Contains(team) ? "Classic Cars" : "2024 Cars";
+        GetWindow().Title = $"{category} — {team.Name} #{team.Drivers[0].Number}";
     }
 
     private void Aim((string Name, Vector3 Eye, Vector3 Look, float Fov) a)
     {
         bool onboard = a.Name == "onboard";
+        bool studioModel = _teams[_team].Id is "red_bull" or TeamData.W11;
+        _cam.Projection = Camera3D.ProjectionType.Perspective;
+        if (studioModel && a.Name == "front34")
+            a = ("front34", new(-5.65f, 2.36f, -6.0f), new(0.20f, 0.38f, -0.60f), 25);
+        if (_teams[_team].Id == TeamData.W11 && a.Name == "front34")
+            a = ("front34", new(-4.45f, 1.92f, -5.55f), new(0.02f, 0.36f, -0.52f), 27.5f);
+        if (onboard && _model != null) a = (a.Name, a.Eye + _model.OnboardOffset, a.Look + _model.OnboardOffset, a.Fov);
         _cam.Fov = a.Fov > 0 ? a.Fov : App.Instance.Settings.FovFor(CameraMode.Cockpit);
         _cam.Near = onboard ? 0.03f : 0.05f;
-        if (_model != null) _model.DriverHead.Visible = !onboard; // as in the real cockpit camera
-        _floor.Visible = a.Name != "bottom";
+        _model?.SetShowroomView(onboard);
+        _studio.Floor.Visible = a.Name != "bottom";
+        if (studioModel && a.Name is "front" or "back" or "left" or "right" or "top" or "bottom")
+        {
+            var centre = new Vector3(0, 0.63f, -0.345f);
+            var axis = a.Name switch
+            {
+                "left" => Vector3.Left, "right" => Vector3.Right, "front" => Vector3.Forward,
+                "back" => Vector3.Back, "top" => Vector3.Up, _ => Vector3.Down,
+            };
+            var size = GetViewport().GetVisibleRect().Size;
+            float width = axis.Z == 0 ? 6.35f : 2.45f;
+            _cam.Projection = Camera3D.ProjectionType.Orthogonal;
+            _cam.Size = Mathf.Max(a.Name is "top" or "bottom" ? 2.35f : 1.52f, width * size.Y / size.X);
+            _cam.GlobalPosition = centre + axis * 12;
+            _cam.LookAt(centre, a.Name == "top" ? Vector3.Right : a.Name == "bottom" ? Vector3.Left : Vector3.Up);
+            return;
+        }
         _cam.GlobalPosition = a.Eye;
         // straight down/up views put the nose on the left, like a model sheet
         _cam.LookAt(a.Look, Mathf.Abs(a.Eye.X) + Mathf.Abs(a.Eye.Z) < 0.01f ? (a.Eye.Y > 0 ? Vector3.Right : Vector3.Left) : Vector3.Up);
@@ -97,8 +122,8 @@ public partial class CarShowroom : Node3D
         var dir = new Basis(Vector3.Up, _yaw) * new Basis(Vector3.Right, _pitch) * Vector3.Back;
         _cam.Fov = 50;
         _cam.Near = 0.05f;
-        if (_model != null) _model.DriverHead.Visible = true;
-        _floor.Visible = true;
+        _model?.SetShowroomView(false);
+        _studio.Floor.Visible = true;
         _cam.GlobalPosition = look + dir * _dist;
         _cam.LookAt(look, Vector3.Up);
     }

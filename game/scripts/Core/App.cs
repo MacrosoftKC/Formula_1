@@ -14,6 +14,8 @@ public partial class App : Node
     public static App Instance { get; private set; } = null!;
 
     public TeamsFile Teams { get; private set; } = null!;
+    public List<TeamData> ClassicCars { get; private set; } = null!;
+    public IEnumerable<TeamData> AllCars => Teams.Teams.Concat(ClassicCars);
     public RegulationsFile Regulations { get; private set; } = null!;
     public GameSettings Settings { get; private set; } = null!;
     public SessionConfig Session { get; set; } = new();
@@ -43,6 +45,7 @@ public partial class App : Node
             else Args[a] = "true";
         }
         Teams = DataFiles.LoadTeams();
+        ClassicCars = DataFiles.Load<TeamsFile>(DataFiles.ClassicsPath).Teams;
         Regulations = DataFiles.LoadRegulations();
         Settings = SettingsStore.Load();
         InputService.Initialize();

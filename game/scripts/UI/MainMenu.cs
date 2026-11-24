@@ -20,9 +20,15 @@ public partial class MainMenu : Node3D
 
     private List<TeamData> _teams = null!;
     private int _team, _seat, _compound;
+    private bool _classic;
+    private readonly Button[] _categoryButtons = new Button[2];
+    private readonly int[] _lastTeam = new int[2];
+    private Panel _carList = null!, _options = null!;
     private bool _ghost = true;
     private CarModel? _car;
+    private DriverData? _displayedDriver;
     private Node3D _turntable = null!;
+    private Studio _studio = null!;
     private Dictionary<string, TrackRecord> _records = new();
 
     private readonly List<Button> _teamButtons = new();
@@ -37,7 +43,7 @@ public partial class MainMenu : Node3D
 
     public override void _Ready()
     {
-        Studio.Build(this);
+        _studio = new Studio(this);
         _turntable = new Node3D { Name = "Turntable", Rotation = new Vector3(0, ShowAngle, 0) };
         AddChild(_turntable);
         var cam = new Camera3D { Name = "Camera", Fov = 30, Near = 0.05f, Far = 500, Current = true };
@@ -45,15 +51,18 @@ public partial class MainMenu : Node3D
         cam.GlobalPosition = new Vector3(-6.61f, 4.53f, -10.53f);
         cam.LookAt(new Vector3(1.23f, -0.25f, -1.0f), Vector3.Up); // car sits right of centre, clear of the menu
 
-        _teams = App.Instance.Teams.Teams;
         var cfg = App.Instance.Session;
-        _team = Math.Max(0, _teams.FindIndex(t => t.Id == (App.Instance.Arg("team") ?? cfg.TeamId)));
+        string id = App.Instance.Arg("team") ?? cfg.TeamId;
+        _classic = App.Instance.ClassicCars.Any(t => t.Id == id);
+        _teams = _classic ? App.Instance.ClassicCars : App.Instance.Teams.Teams;
+        _team = Math.Max(0, _teams.FindIndex(t => t.Id == id));
         _seat = Math.Clamp(cfg.Seat, 0, 1);
         _compound = Math.Max(0, Array.IndexOf(Compounds, cfg.Compound));
         _ghost = cfg.ShowGhost;
         _records = Records.Load();
 
         BuildUi();
+        PopulateCars();
         Select(_team);
         if (App.Instance.Arg("autotest") == "menushot") _shotFrames = 0;
     }
@@ -110,31 +119,25 @@ public partial class MainMenu : Node3D
         Text(root, "LOW-POLY F1", 22, Accent, new Vector2(64, 40), new Vector2(600, 30));
         Text(root, "TIME TRIAL", 64, Ink, new Vector2(60, 66), new Vector2(800, 76));
         var teamsFile = App.Instance.Teams;
-        Text(root, $"{App.Instance.Track.Name.ToUpperInvariant()}  ·  MELBOURNE  ·  {teamsFile.Season} {teamsFile.Event.ToUpperInvariant()}", 20, Muted, new Vector2(64, 140), new Vector2(1100, 30));
+        Text(root, $"{App.Instance.Track.Name.ToUpperInvariant()}  ·  MELBOURNE  ·  {teamsFile.Event.ToUpperInvariant()}", 20, Muted, new Vector2(64, 140), new Vector2(1100, 30));
 
         // team list
-        var list = new Panel { Position = new Vector2(60, 196), Size = new Vector2(540, 680) };
-        list.AddThemeStyleboxOverride("panel", Box(Card, radius: 10));
-        root.AddChild(list);
-        Text(list, "CHOOSE YOUR CAR", 18, Muted, new Vector2(20, 10), new Vector2(400, 30));
-        for (int i = 0; i < _teams.Count; i++)
+        _carList = new Panel { Position = new Vector2(60, 196) };
+        _carList.AddThemeStyleboxOverride("panel", Box(Card, radius: 10));
+        root.AddChild(_carList);
+        string[] categories = { "2024 Cars", "Classic Cars" };
+        for (int i = 0; i < categories.Length; i++)
         {
-            int index = i;
-            var t = _teams[i];
-            var b = MakeButton(list, "", new Vector2(14, 46 + i * 62), new Vector2(512, 56));
-            var chip = new ColorRect { Color = Units.Hex(t.Primary), Position = new Vector2(12, 10), Size = new Vector2(14, 36), MouseFilter = Control.MouseFilterEnum.Ignore };
-            var chip2 = new ColorRect { Color = Units.Hex(t.Livery.Sidepod ?? t.Secondary), Position = new Vector2(28, 10), Size = new Vector2(8, 36), MouseFilter = Control.MouseFilterEnum.Ignore };
-            b.AddChild(chip); b.AddChild(chip2);
-            var name = Text(b, t.Name, 24, Ink, new Vector2(52, 4), new Vector2(330, 48));
-            name.MouseFilter = Control.MouseFilterEnum.Ignore;
-            var pu = Text(b, t.PowerUnit.ToUpperInvariant(), 14, Muted, new Vector2(330, 4), new Vector2(170, 48), HorizontalAlignment.Right);
-            pu.MouseFilter = Control.MouseFilterEnum.Ignore;
-            b.Pressed += () => Select(index);
-            _teamButtons.Add(b);
+            bool classic = i == 1;
+            var tab = MakeButton(_carList, categories[i], new Vector2(14 + i * 258, 12), new Vector2(252, 44), 20);
+            tab.Alignment = HorizontalAlignment.Center;
+            tab.TooltipText = "Switch car category (Tab)";
+            tab.Pressed += () => ChangeCategory(classic);
+            _categoryButtons[i] = tab;
         }
 
         // driver, tyres, ghost
-        var opts = new Panel { Position = new Vector2(60, 892), Size = new Vector2(540, 150) };
+        var opts = _options = new Panel { Position = new Vector2(60, 892), Size = new Vector2(540, 150) };
         opts.AddThemeStyleboxOverride("panel", Box(Card, radius: 10));
         root.AddChild(opts);
         for (int s = 0; s < 2; s++)
@@ -187,9 +190,53 @@ public partial class MainMenu : Node3D
 
     // ---- selection -------------------------------------------------------------------------------------------------
 
+    private void ChangeCategory(bool classic)
+    {
+        if (_classic == classic) return;
+        _lastTeam[_classic ? 1 : 0] = _team;
+        _classic = classic;
+        _teams = classic ? App.Instance.ClassicCars : App.Instance.Teams.Teams;
+        _seat = 0;
+        PopulateCars();
+        Select(_lastTeam[classic ? 1 : 0]);
+    }
+
+    private void PopulateCars()
+    {
+        foreach (var button in _teamButtons)
+        {
+            _carList.RemoveChild(button);
+            button.QueueFree();
+        }
+        _teamButtons.Clear();
+        for (int i = 0; i < _categoryButtons.Length; i++)
+        {
+            bool active = (i == 1) == _classic;
+            Style(_categoryButtons[i], active ? Ink : Colors.Transparent, active ? Colors.White : Ink);
+        }
+        _carList.Size = new Vector2(540, 78 + 59 * _teams.Count);
+        _options.Position = _carList.Position + new Vector2(0, _carList.Size.Y + 16);
+        for (int i = 0; i < _teams.Count; i++)
+        {
+            int index = i;
+            var t = _teams[i];
+            var b = MakeButton(_carList, "", new Vector2(14, 68 + i * 59), new Vector2(512, 54));
+            var chip = new ColorRect { Color = Units.Hex(t.Primary), Position = new Vector2(12, 10), Size = new Vector2(14, 36), MouseFilter = Control.MouseFilterEnum.Ignore };
+            var chip2 = new ColorRect { Color = Units.Hex(t.Livery.Sidepod ?? t.Secondary), Position = new Vector2(28, 10), Size = new Vector2(8, 36), MouseFilter = Control.MouseFilterEnum.Ignore };
+            b.AddChild(chip); b.AddChild(chip2);
+            var name = Text(b, t.Name, 24, Ink, new Vector2(52, 4), new Vector2(330, 48));
+            name.MouseFilter = Control.MouseFilterEnum.Ignore;
+            var pu = Text(b, t.ModelYear?.ToString() ?? t.PowerUnit.ToUpperInvariant(), 14, Muted, new Vector2(330, 4), new Vector2(170, 48), HorizontalAlignment.Right);
+            pu.MouseFilter = Control.MouseFilterEnum.Ignore;
+            b.Pressed += () => Select(index);
+            _teamButtons.Add(b);
+        }
+    }
+
     private void Select(int index)
     {
         _team = (index + _teams.Count) % _teams.Count;
+        _studio.LightForTeam(_teams[_team].Id);
         _seat = Math.Clamp(_seat, 0, _teams[_team].Drivers.Count - 1);
         Refresh();
     }
@@ -224,13 +271,17 @@ public partial class MainMenu : Node3D
         var bar = Units.Hex(team.Primary).Luminance > 0.85f ? Units.Hex(team.Secondary) : Units.Hex(team.Primary);
         for (int i = 0; i < 4; i++) { _statBars[i].Size = new Vector2(330 * values[i], 10); _statBars[i].Color = bar; }
         _best.Text = _records.TryGetValue(TrackId, out var rec) && rec.BestLap > 0
-            ? $"PERSONAL BEST  {LapTimer.Format(rec.BestLap)}  ({_teams.FirstOrDefault(t => t.Id == rec.TeamId)?.Name ?? rec.TeamId})"
+            ? $"PERSONAL BEST  {LapTimer.Format(rec.BestLap)}  ({App.Instance.AllCars.FirstOrDefault(t => t.Id == rec.TeamId)?.Name ?? rec.TeamId})"
             : "PERSONAL BEST  —  no lap yet";
 
+        if (_displayedDriver == driver) return;
+        _displayedDriver = driver;
+        _turntable.Rotation = new Vector3(0, _classic ? -0.20f : ShowAngle, 0);
         _car?.QueueFree();
         _car = new CarModel { Name = "Car" };
         _turntable.AddChild(_car);
         _car.Build(team, driver);
+        _car.SetShowroomView(false);
     }
 
     private static float Stat(double v, double lo, double hi) => (float)Math.Clamp(0.15 + 0.85 * (v - lo) / (hi - lo), 0.08, 1);
@@ -255,7 +306,6 @@ public partial class MainMenu : Node3D
             _turntable.RotateY((float)delta * 0.25f);
             return;
         }
-        _turntable.Rotation = new Vector3(0, ShowAngle, 0); // screenshot: hold the display angle
         if (++_shotFrames >= 24)
         {
             string dir = App.Instance.Arg("out") ?? ProjectSettings.GlobalizePath("user://shots");
@@ -272,6 +322,7 @@ public partial class MainMenu : Node3D
         if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
         switch (k.Keycode)
         {
+            case Key.Tab: ChangeCategory(!_classic); break;
             case Key.Up: Select(_team - 1); break;
             case Key.Down: Select(_team + 1); break;
             case Key.Left: _seat = 0; Refresh(); break;

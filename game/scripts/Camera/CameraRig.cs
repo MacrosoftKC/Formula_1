@@ -74,6 +74,7 @@ public partial class CameraRig : Node3D
         float lookSide = Godot.Input.GetActionStrength(InputService.LookLeft) - Godot.Input.GetActionStrength(InputService.LookRight);
         float yaw = lookBack ? Mathf.Pi : lookSide * Mathf.DegToRad(75);
 
+        Vector3 onboardOffset = Target.Model?.OnboardOffset ?? Vector3.Zero;
         switch (Mode)
         {
             case CameraMode.Cockpit:
@@ -84,14 +85,14 @@ public partial class CameraRig : Node3D
                 var shake = Shake(dt) * S.CameraShake;
                 var local = new Vector3(_headOffset.X + shake.X, CockpitEye.Y + S.SeatHeight + shake.Y, CockpitEye.Z - S.SeatForward + _headOffset.Y);
                 var b = basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(CockpitPitchDeg)) * new Basis(Vector3.Forward, -Target.LateralG * 0.006f * S.HeadMovement);
-                Camera.GlobalTransform = new Transform3D(b, car * local);
+                Camera.GlobalTransform = new Transform3D(b, car * (local + onboardOffset));
                 break;
             }
             case CameraMode.Helmet:
-                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw + Mathf.DegToRad(HelmetYawDeg)) * new Basis(Vector3.Right, Mathf.DegToRad(HelmetPitchDeg)), car * HelmetEye);
+                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw + Mathf.DegToRad(HelmetYawDeg)) * new Basis(Vector3.Right, Mathf.DegToRad(HelmetPitchDeg)), car * (HelmetEye + onboardOffset));
                 break;
             case CameraMode.TCam:
-                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(-4)), car * new Vector3(0, 1.18f, 0.18f));
+                Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, Mathf.DegToRad(-4)), car * (new Vector3(0, 1.18f, 0.18f) + onboardOffset));
                 break;
             case CameraMode.Nose:
                 Camera.GlobalTransform = new Transform3D(basis * new Basis(Vector3.Up, yaw), car * new Vector3(0, 0.42f, -2.35f));

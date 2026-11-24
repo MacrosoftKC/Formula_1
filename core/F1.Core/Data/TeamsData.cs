@@ -1,6 +1,6 @@
 namespace F1.Core.Data;
 
-/// <summary>Grid definition loaded from data/teams_2025.json. Edit that file to change names, colours or performance.</summary>
+/// <summary>A collection of selectable cars and their drivers.</summary>
 public sealed class TeamsFile
 {
     public int Season { get; set; }
@@ -13,6 +13,8 @@ public sealed class TeamsFile
 
 public sealed class TeamData
 {
+    public const string W11 = "mercedes_w11";
+    public int? ModelYear { get; set; }
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string ShortName { get; set; } = "";

@@ -7,7 +7,8 @@ namespace F1.Game.Core;
 /// <summary>Loads the JSON data files that ship under res://data.</summary>
 public static class DataFiles
 {
-    public const string TeamsPath = "res://data/teams_2025.json";
+    public const string TeamsPath = "res://data/teams_2024.json";
+    public const string ClassicsPath = "res://data/classic_cars.json";
     public const string RegulationsPath = "res://data/regulations_2025.json";
     public const string AlbertParkPath = "res://data/tracks/albert_park/track.json";
 

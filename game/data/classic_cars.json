@@ -1,0 +1,13 @@
+{
+  "teams": [
+    {
+      "id": "mercedes_w11", "modelYear": 2020, "name": "Mercedes-AMG W11", "shortName": "W11", "powerUnit": "Mercedes M11",
+      "primary": "#181A1F", "secondary": "#00CFC1", "accent": "#00CFC1", "rim": "#00CFC1",
+      "car": { "power": 1.004, "downforce": 1.003, "drag": 0.995, "tyreWear": 0.97, "reliability": 96, "pitStopTime": 2.4 },
+      "drivers": [
+        { "number": 44, "firstName": "Lewis", "lastName": "Hamilton", "code": "HAM", "nationality": "GBR", "helmet": "#7729A7",
+          "ratings": { "pace": 98, "consistency": 96, "racecraft": 96, "tyreManagement": 97, "wet": 98, "starts": 90 } }
+      ]
+    }
+  ]
+}

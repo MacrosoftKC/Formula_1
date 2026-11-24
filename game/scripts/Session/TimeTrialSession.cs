@@ -29,7 +29,7 @@ public partial class TimeTrialSession : SessionBase
     protected override void SetupSession()
     {
         var cfg = Config;
-        var team = App.Instance.Teams.Teams.FirstOrDefault(t => t.Id == cfg.TeamId) ?? App.Instance.Teams.Teams[0];
+        var team = App.Instance.AllCars.FirstOrDefault(t => t.Id == cfg.TeamId) ?? App.Instance.Teams.Teams[0];
         var driver = PlayerDriverData(team);
         var compound = TyreCompound.ById(cfg.Compound);
 
