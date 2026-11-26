@@ -1,12 +1,12 @@
-"""Extract the W11 onboard engine banks from the supplied Monza pole-lap MP3.
+"""Extract the W11 engine banks from the supplied Assetto Corsa W11 hotlap of Albert Park (1:18.551) MP3.
 
-python make_banks.py <onboard.mp3> <wav-output-dir>
+python make_banks.py <hotlap.mp3> <wav-output-dir>
 Requires pygame, numpy and scipy. Pack the resulting WAVs with pack_banks.gd.
 
 Every loop is resampled onto one crank-angle clock (512 samples per four-stroke cycle,
 51200 Hz = unity pitch at 12,000 RPM), so the game can crossfade them at a shared pitch.
 Loops keep their recorded level relative to each other (one global gain for all banks),
-so the in-game mix inherits the real loudness of each RPM, gear and throttle state.
+so the in-game mix inherits the reference's loudness for each RPM, gear and throttle state.
 """
 import argparse
 import os
@@ -23,54 +23,49 @@ ORDERS = np.array([2, 3, 5, 6, 7, 9, 11, 12, 15])
 PEAK = 0.94
 
 # Clips are (start s, end s, RPM at start, RPM at end) in the supplied MP3. Each stays inside
-# one gear and avoids kerb strikes (a low thump would repeat every loop) and gear changes.
-# Short chicane-exit sweeps are pooled and re-sequenced cycle by cycle into longer loops.
+# one gear, clear of gear changes and downshift blips. Short corner-exit sweeps are pooled and
+# re-sequenced cycle by cycle into longer loops.
 BANKS = {
-    # full throttle, 2nd-5th gear: little wind, strong airbox and exhaust
-    "LowA": [(20.420, 20.950, 6640, 7600)],                                  # Rettifilo exit, 2nd
-    "LowB": [(20.850, 21.320, 7430, 8450)],                                  # Rettifilo exit, 2nd
-    "LowC": [(37.500, 38.000, 8450, 9350)],                                  # Roggia exit
-    "LowD": [(37.900, 38.220, 9300, 9700)],                                  # Roggia exit
-    "LowE": [(22.270, 22.550, 10900, 11600), (22.800, 23.080, 10850, 11600),  # 3rd, 4th
-             (23.400, 23.700, 11000, 11450)],                                 # 5th
-    "LowF": [(21.980, 22.228, 11500, 12600), (22.550, 22.770, 11600, 12450),  # 2nd, 3rd
-             (23.080, 23.300, 11600, 12080), (23.750, 24.120, 11650, 12120)], # 4th, 5th
-    # full throttle, 6th-8th gear: road and wind noise at 280-340 km/h
-    "HighA": [(4.700, 6.000, 10760, 11150), (25.750, 26.850, 10850, 11450),  # 8th, 7th
-              (64.100, 64.700, 11060, 11500)],                                # 6th
-    "HighB": [(8.000, 10.000, 11550, 11910), (27.000, 28.050, 11550, 12070), # 8th, 7th
-              (64.800, 65.650, 11600, 12150)],                                # 6th
-    "HighC": [(13.270, 15.510, 12190, 12110)],                                # 8th, flat out
-    # off throttle: overrun, MGU-K harvest and downshift braking
-    "CoastLow": [(17.330, 18.250, 9800, 7420), (36.300, 37.050, 9700, 8400)],  # Rettifilo, Roggia
-    "CoastHigh": [(76.470, 76.900, 11300, 9900)],                              # Parabolica, 300 km/h
+    # full throttle out of the slow corners (T3, T11-12, T13 and T1): low gears, little wind
+    "LowA": [(69.640, 70.100, 6290, 7520), (17.420, 17.950, 7010, 7560)],                       # T13, T3
+    "LowB": [(70.050, 70.450, 7500, 8480), (17.950, 18.420, 7560, 8900), (60.000, 60.400, 8020, 8860)],
+    "LowC": [(70.400, 70.720, 8420, 9580), (18.300, 18.600, 8700, 9450), (60.300, 60.600, 8670, 9250)],
+    "LowD": [(70.700, 71.020, 9450, 10500), (60.720, 61.080, 9420, 10250), (18.600, 18.880, 9450, 10200)],
+    "LowE": [(61.100, 61.600, 10370, 11630), (71.350, 72.000, 10720, 11560),
+             (20.350, 20.750, 10700, 11460), (6.550, 7.200, 10480, 11420)],
+    "LowF": [(61.600, 61.990, 11630, 12300), (72.000, 72.780, 11560, 12330),
+             (7.250, 8.000, 11480, 12300), (73.200, 73.660, 11230, 12170)],
+    "LowTop": [(20.950, 21.300, 12350, 13240), (21.750, 22.180, 12330, 13020)],              # T3 exit over-rev
+    # full throttle in 8th gear on the straights: road and wind noise at 280-320 km/h
+    "HighZ": [(48.300, 50.400, 10000, 10140)],
+    "HighA": [(37.100, 38.600, 10760, 11090), (1.100, 1.700, 11070, 11300)],
+    "HighB": [(39.300, 41.600, 11190, 11620), (1.700, 3.900, 11300, 11680), (13.000, 14.250, 11150, 11430)],
+    "HighC": [(43.300, 47.120, 11790, 11995)],                                               # flat out
+    # off throttle between the downshift blips: overrun and engine braking
+    "CoastLow": [(68.200, 68.850, 8000, 7000), (58.850, 59.520, 8440, 7620),
+                 (16.350, 16.850, 8200, 7570), (81.600, 82.350, 9500, 9140)],
+    "CoastHigh": [(80.000, 80.380, 11150, 10780), (47.300, 47.980, 11350, 10450), (29.500, 29.970, 10550, 10080)],
 }
-# Formant-preserving extensions beyond the recorded range (the lap never idles or over-revs).
+# Formant-preserving extensions beyond the recorded range (the lap never idles).
 EXTEND = [
     # name,     source,     target RPM
     ("LowZ",    "LowA",     5500),
     ("Idle",    "CoastLow", 4600),
-    ("LowTop",  "LowF",    13600),
     ("HighTop", "HighC",   13600),
 ]
-# Shift transients at their recorded speed: a few ms before the gear change to the end of
-# the torque interruption (upshift) or the rev-matching blip (downshift).
+# Shift transients at their recorded speed: a few ms before the gear change to the end of the
+# torque interruption (upshift), or from just before the rev-matching blip to where it settles.
 #                        shift time before  after
 SHIFTS = [
-    ("UpshiftLow",    22.239, 0.006, 0.050),   # 2-3, Rettifilo exit, 12,600 -> 10,950 RPM
-    ("UpshiftHigh",   63.980, 0.006, 0.050),   # 5-6, Ascari exit, 12,440 -> 11,080 RPM
-    ("DownshiftLow",  36.238, 0.012, 0.095),   # Roggia braking, 8,930 -> 10,250 RPM
-    ("DownshiftHigh", 62.030, 0.012, 0.095),   # Ascari braking, 10,330 -> 11,380 RPM
+    ("UpshiftLow",    62.041, 0.006, 0.120),   # T12 exit, 12,340 -> 11,000 RPM
+    ("UpshiftHigh",   36.808, 0.006, 0.120),   # into 8th before T9, 12,240 -> 10,760 RPM
+    ("DownshiftLow",  66.265, 0.012, 0.095),   # T13 braking, flares then settles near 10,800 RPM
+    ("DownshiftHigh",  4.168, 0.012, 0.095),   # T1 braking from 300 km/h, settles near 10,900 RPM
 ]
-# The Roggia exit is taken over the kerbs on a part throttle, so its two banks sit ~5 dB under the
-# Rettifilo and 3rd-gear pulls either side; lift them onto that curve so a full-throttle pull doesn't
-# dip in the middle. The 6th/7th-gear grains make HighB ~1.5 dB louder than the 8th-gear banks.
-# The Parabolica overrun starts a few tenths after the lift; in-game lifts at high RPM need it ~2 dB up.
-TRIM_DB = {"LowC": 5.0, "LowD": 4.0, "HighB": -1.5, "CoastHigh": 2.0}
 ALIGN = [  # each bank is phase-aligned with the one it crossfades with
     ("LowA", None), ("LowB", "LowA"), ("LowC", "LowB"), ("LowD", "LowC"), ("LowE", "LowD"),
-    ("LowF", "LowE"), ("HighA", "LowE"), ("HighB", "HighA"), ("HighC", "HighB"),
-    ("CoastLow", "LowB"), ("CoastHigh", "LowD"),
+    ("LowF", "LowE"), ("LowTop", "LowF"), ("HighZ", "LowD"), ("HighA", "HighZ"), ("HighB", "HighA"),
+    ("HighC", "HighB"), ("CoastLow", "LowB"), ("CoastHigh", "LowD"),
 ]
 
 
@@ -221,10 +216,12 @@ def main():
             loop = grain_loop(sweeps, 192, 16, 4, seed)
         else:
             loop = grain_loop(sweeps, 64, 6, 2, seed)
-        loops[name] = align(loop - loop.mean(axis=0), anchor) * 10 ** (TRIM_DB.get(name, 0) / 20)
+        loops[name] = align(loop - loop.mean(axis=0), anchor)
         centre[name] = float(np.exp(np.mean([np.log(lo * hi) / 2 for _, _, lo, hi in clips])))
     for name, src, rpm in EXTEND:
-        loops[name] = formant_shift(loops[src], rpm / centre[src])
+        shifted = formant_shift(loops[src], rpm / centre[src])
+        # Moving the envelope down piles energy into the low orders; keep the source's loudness.
+        loops[name] = shifted * np.sqrt(np.mean(loops[src] ** 2) / np.mean(shifted ** 2))
         centre[name] = float(rpm)
 
     # One gain for every bank, set by the loudest peak.

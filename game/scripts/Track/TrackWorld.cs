@@ -30,7 +30,21 @@ public partial class TrackWorld : Node3D
         var frames = new TrackFrames(Surface);
         Mark("data");
         (Environment, Sun) = EnvironmentBuilder.Build(this);
-        NatureBuilder.BuildGround(this, Surface); Mark("ground");
+        bool spa = Surface.Data.Id == DataFiles.SpaId;
+        if (spa)
+        {
+            // Belgian Grand Prix, mid-afternoon in July: the sun stands about 45 degrees up in the south-west, so it lights
+            // the climb out of Eau Rouge and throws the forest's shadows towards the north-east.
+            Sun.RotationDegrees = new Vector3(-45, -50, 0);
+            Sun.LightColor = new Color(1.0f, 0.96f, 0.9f);
+            Sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel2Splits;
+            Sun.DirectionalShadowMaxDistance = 110;
+            Sun.ShadowEnabled = App.Instance.Settings.Shadows != "Off";
+            Environment.Environment.GlowEnabled = false;
+            SpaLandscape.Build(this, frames, BuildScenery);
+        }
+        else NatureBuilder.BuildGround(this, Surface);
+        Mark("ground");
         RoadBuilder.Build(this, frames); Mark("road");
         BarrierBuilder.Build(this, frames); Mark("barriers");
         StartLights = FurnitureBuilder.BuildStartGantry(this, Surface);
@@ -39,17 +53,20 @@ public partial class TrackWorld : Node3D
 
         if (BuildScenery)
         {
-            LakeBuilder.Build(this, Surface); Mark("lake");
+            if (!spa) LakeBuilder.Build(this, Surface);
             FurnitureBuilder.BuildBoards(this, Surface); Mark("boards");
-            var bands = StandsBuilder.Build(this, frames, StandsBuilder.AlbertParkStands(Surface)); Mark("stands");
+            var bands = StandsBuilder.Build(this, frames, spa ? SpaLandscape.Stands : StandsBuilder.AlbertParkStands(Surface)); Mark("stands");
 
-            var mask = new SceneryMask(Surface);
-            foreach (var b in bands) mask.BlockStrip(Surface.Center, b.From, b.To, b.Side * b.DMin, b.Side * b.DMax);
-            mask.BlockStrip(Surface.Pit, 0, Surface.Pit.Length, 0, -pitFootprint.Depth);
-            mask.BlockDisk(pitFootprint.Tower, 25);
-            Mark("mask");
-            NatureBuilder.BuildTrees(this, Surface, mask); Mark("trees");
-            CityBuilder.Build(this, Surface, mask); Mark("city");
+            if (!spa)
+            {
+                var mask = new SceneryMask(Surface);
+                foreach (var b in bands) mask.BlockStrip(Surface.Center, b.From, b.To, b.Side * b.DMin, b.Side * b.DMax);
+                mask.BlockStrip(Surface.Pit, 0, Surface.Pit.Length, 0, -pitFootprint.Depth);
+                mask.BlockDisk(pitFootprint.Tower, 25);
+                Mark("mask");
+                NatureBuilder.BuildTrees(this, Surface, mask); Mark("trees");
+                CityBuilder.Build(this, Surface, mask); Mark("city");
+            }
         }
         GD.Print($"TrackWorld built in {Time.GetTicksMsec() - started} ms ({string.Join(", ", timings)})");
     }

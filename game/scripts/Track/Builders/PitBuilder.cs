@@ -30,7 +30,7 @@ public static class PitBuilder
         var col = new LowPolyMesh();
 
         double uA = pitData.Boxes[0] - 30, uB = pitData.Boxes[^1] + 30;
-        Vector3 PW(double u, float d, float h) => Units.ToWorld(pit.ToWorld(u, d), h);
+        Vector3 PW(double u, float d, float h) => ts.PitPoint(u, d, h);
 
         for (double u = 0; u < pit.Length - 2; u += 2)
         {
@@ -56,7 +56,7 @@ public static class PitBuilder
                 m.QuadFacing(PW(u, -front - Depth, 0), PW(u1, -front - Depth, 0), PW(u1, -front - Depth, BuildingHeight), PW(u, -front - Depth, BuildingHeight), -toward, Wall.Darkened(0.15f));
                 col.QuadFacing(PW(u, -front, -0.5f), PW(u1, -front, -0.5f), PW(u1, -front, 3f), PW(u, -front, 3f), toward, Wall);
             }
-            else
+            else if (!ts.HasRelief || (u > pitData.LimitStart && u < pitData.LimitEnd))
             {
                 // simple wall along the outside of the pit lane beyond the garages
                 var a = PW(u, -half - 0.6f, 0); var b = PW(u1, -half - 0.6f, 0);
@@ -114,7 +114,7 @@ public static class PitBuilder
         // just past the start/finish line along the pit lane, behind the pit building
         double u = pitData.Boxes[^1] + 45;
         var p2 = pit.ToWorld(u, -(front + 8));
-        var pos = Units.ToWorld(p2);
+        var pos = Units.ToWorld(p2, ts.PitHeight(u));
         var m = new LowPolyMesh();
         var basis = Basis.LookingAt(Units.DirToWorld(pit.TangentAt(u)), Vector3.Up);
         m.Box(pos + new Vector3(0, 11, 0), new Vector3(4, 11, 4), basis, Wall);
@@ -133,7 +133,7 @@ public static class PitBuilder
         for (int t = 0; t < teams.Count; t++)
         {
             double u = uA + 15 + (uB - uA - 30) * t / Math.Max(1, teams.Count - 1);
-            var pos = Units.ToWorld(pit.ToWorld(u, -(front + Depth + 18)));
+            var pos = ts.PitPoint(u, -(front + Depth + 18));
             var basis = Basis.LookingAt(Units.DirToWorld(pit.TangentAt(u)), Vector3.Up);
             var c = Units.Hex(teams[t].Primary);
             m.Box(pos + new Vector3(0, 3.5f, 0), new Vector3(5.5f, 3.5f, 8f), basis, c.Lerp(Colors.White, 0.15f));

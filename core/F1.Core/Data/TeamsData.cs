@@ -14,6 +14,7 @@ public sealed class TeamsFile
 public sealed class TeamData
 {
     public const string W11 = "mercedes_w11";
+    public const string F2004 = "ferrari_f2004";
     public int? ModelYear { get; set; }
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";

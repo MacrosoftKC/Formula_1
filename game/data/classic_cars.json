@@ -8,6 +8,15 @@
         { "number": 44, "firstName": "Lewis", "lastName": "Hamilton", "code": "HAM", "nationality": "GBR", "helmet": "#7729A7",
           "ratings": { "pace": 98, "consistency": 96, "racecraft": 96, "tyreManagement": 97, "wet": 98, "starts": 90 } }
       ]
+    },
+    {
+      "id": "ferrari_f2004", "modelYear": 2004, "name": "Ferrari F2004", "shortName": "F2004", "powerUnit": "Ferrari 053 V10",
+      "primary": "#E20814", "secondary": "#F6F4F4", "accent": "#FFDC13", "rim": "#9EA3AD",
+      "car": { "power": 1.0, "downforce": 0.91, "drag": 0.96, "tyreWear": 1.02 },
+      "drivers": [
+        { "number": 1, "firstName": "Michael", "lastName": "Schumacher", "code": "MSC", "nationality": "GER", "helmet": "#F31520",
+          "ratings": { "pace": 99, "consistency": 97, "racecraft": 97, "tyreManagement": 96, "wet": 99, "starts": 94 } }
+      ]
     }
   ]
 }

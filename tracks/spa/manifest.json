@@ -1,0 +1,287 @@
+{
+ "generated": "2026-11-25T06:17:43+00:00",
+ "frame": {
+  "crs": "EPSG:3812 Belgian Lambert 2008",
+  "local_origin_lambert": [
+   763376.0784465298,
+   627163.9777324494
+  ],
+  "local_origin_latlon": [
+   50.44422415215229,
+   5.965014088703498
+  ],
+  "origin_is": "measured chequered control line",
+  "vertical": "metres above Ostend (DNG); track.json heights are relative to 416.895 m at the control line",
+  "engine": "Godot: (X, Y, Z) = (E, U, -N), 1 unit = 1 m"
+ },
+ "inputs": [
+  {
+   "id": "D1",
+   "url": "https://raw.githubusercontent.com/TUMFTM/racetrack-database/master/tracks/Spa.csv",
+   "file": "tools/SpaSurvey/cache/tum/Spa.csv",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 49499,
+   "sha256_16": "952673dfa772427b",
+   "name": "TUMFTM racetrack-database, tracks/Spa.csv",
+   "licence": "LGPL-3.0 (data derived from OpenStreetMap, ODbL)",
+   "crs": "local metres, origin at first row, no CRS",
+   "units": "m",
+   "points": 1401,
+   "spacing_m": [
+    4.67,
+    5.23
+   ],
+   "closed_length_m": 7000.05,
+   "closing_gap_m": 5.0,
+   "signed_area_m2": -923549,
+   "bbox": [
+    -400.2,
+    -1694.3,
+    869.7,
+    345.9
+   ],
+   "use": "search prior only"
+  },
+  {
+   "id": "D2_tiles",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/RELIEF/LIDAR_MAILLES/MapServer/0/query",
+   "file": "tools/SpaSurvey/cache/dtm_tiles.json",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 13768,
+   "sha256_16": "542d7d42023cf778",
+   "name": "SPW LiDAR 2021-2022 tile index (flight dates)",
+   "licence": "CC BY 4.0, © SPW 2021-2022",
+   "crs": "EPSG:3812",
+   "tiles": 56,
+   "flight_dates": [
+    "2022-02-28",
+    "2022-03-03"
+   ],
+   "vertical_datum": "Ostend height (DNG, EPSG:5710)"
+  },
+  {
+   "id": "D3_762700_625100",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/IMAGERIE/ORTHO_2023_ETE/MapServer/export?bbox=762700%2C625100%2C763600%2C626000&bboxSR=3812&imageSR=3812&size=3600%2C3600&format=jpg&f=image",
+   "file": "tools/SpaSurvey/cache/ortho/ortho762700_625100.jpg",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 3668439,
+   "sha256_16": "e4cffc464462d099",
+   "name": "SPW ORTHO 2023 summer, 25 cm (map service export)",
+   "crs": "EPSG:3812",
+   "units": "m, RGB",
+   "bbox": [
+    762700,
+    625100,
+    763600,
+    626000
+   ],
+   "pixels": "3600x3600",
+   "licence": "CC BY 4.0, © SPW 2023"
+  },
+  {
+   "id": "D3_762700_626000",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/IMAGERIE/ORTHO_2023_ETE/MapServer/export?bbox=762700%2C626000%2C763600%2C626900&bboxSR=3812&imageSR=3812&size=3600%2C3600&format=jpg&f=image",
+   "file": "tools/SpaSurvey/cache/ortho/ortho762700_626000.jpg",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 4217791,
+   "sha256_16": "beff80d31b691150",
+   "name": "SPW ORTHO 2023 summer, 25 cm (map service export)",
+   "crs": "EPSG:3812",
+   "units": "m, RGB",
+   "bbox": [
+    762700,
+    626000,
+    763600,
+    626900
+   ],
+   "pixels": "3600x3600",
+   "licence": "CC BY 4.0, © SPW 2023"
+  },
+  {
+   "id": "D3_762700_626900",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/IMAGERIE/ORTHO_2023_ETE/MapServer/export?bbox=762700%2C626900%2C763600%2C627800&bboxSR=3812&imageSR=3812&size=3600%2C3600&format=jpg&f=image",
+   "file": "tools/SpaSurvey/cache/ortho/ortho762700_626900.jpg",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 3730684,
+   "sha256_16": "4ec5024600958917",
+   "name": "SPW ORTHO 2023 summer, 25 cm (map service export)",
+   "crs": "EPSG:3812",
+   "units": "m, RGB",
+   "bbox": [
+    762700,
+    626900,
+    763600,
+    627800
+   ],
+   "pixels": "3600x3600",
+   "licence": "CC BY 4.0, © SPW 2023"
+  },
+  {
+   "id": "D3_763600_625100",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/IMAGERIE/ORTHO_2023_ETE/MapServer/export?bbox=763600%2C625100%2C764500%2C626000&bboxSR=3812&imageSR=3812&size=3600%2C3600&format=jpg&f=image",
+   "file": "tools/SpaSurvey/cache/ortho/ortho763600_625100.jpg",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 3568000,
+   "sha256_16": "792a0707e8c7f9e4",
+   "name": "SPW ORTHO 2023 summer, 25 cm (map service export)",
+   "crs": "EPSG:3812",
+   "units": "m, RGB",
+   "bbox": [
+    763600,
+    625100,
+    764500,
+    626000
+   ],
+   "pixels": "3600x3600",
+   "licence": "CC BY 4.0, © SPW 2023"
+  },
+  {
+   "id": "D3_763600_626000",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/IMAGERIE/ORTHO_2023_ETE/MapServer/export?bbox=763600%2C626000%2C764500%2C626900&bboxSR=3812&imageSR=3812&size=3600%2C3600&format=jpg&f=image",
+   "file": "tools/SpaSurvey/cache/ortho/ortho763600_626000.jpg",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 3721164,
+   "sha256_16": "5e74eac99054ba26",
+   "name": "SPW ORTHO 2023 summer, 25 cm (map service export)",
+   "crs": "EPSG:3812",
+   "units": "m, RGB",
+   "bbox": [
+    763600,
+    626000,
+    764500,
+    626900
+   ],
+   "pixels": "3600x3600",
+   "licence": "CC BY 4.0, © SPW 2023"
+  },
+  {
+   "id": "D3_763600_626900",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/IMAGERIE/ORTHO_2023_ETE/MapServer/export?bbox=763600%2C626900%2C764500%2C627800&bboxSR=3812&imageSR=3812&size=3600%2C3600&format=jpg&f=image",
+   "file": "tools/SpaSurvey/cache/ortho/ortho763600_626900.jpg",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 3566658,
+   "sha256_16": "49fd15c104e5cc8e",
+   "name": "SPW ORTHO 2023 summer, 25 cm (map service export)",
+   "crs": "EPSG:3812",
+   "units": "m, RGB",
+   "bbox": [
+    763600,
+    626900,
+    764500,
+    627800
+   ],
+   "pixels": "3600x3600",
+   "licence": "CC BY 4.0, © SPW 2023"
+  },
+  {
+   "id": "D4",
+   "url": "https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%5Btimeout%3A60%5D%3B%28way%5B%22highway%22%3D%22raceway%22%5D%2850.40%2C5.90%2C50.47%2C5.98%29%3B%29%3Bout%20tags%20geom%3B",
+   "file": "tools/SpaSurvey/cache/osm/raceway.json",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 42943,
+   "sha256_16": "e4321ac06d2c1209",
+   "name": "OpenStreetMap highway=raceway ways (Overpass)",
+   "licence": "ODbL, © OpenStreetMap contributors",
+   "crs": "WGS84 lat/lon"
+  },
+  {
+   "id": "D5",
+   "url": "https://ser2026.racspa.be/docs/CircuitdeSpa-Francorchamps-Fulltrack.pdf",
+   "file": "tools/SpaSurvey/cache/d5/fulltrack.pdf",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 1027309,
+   "sha256_16": "ae1177534e6097f6",
+   "name": "Circuit de Spa-Francorchamps full-track map (altitude markers)",
+   "licence": "© Circuit de Spa-Francorchamps, reference only (not redistributed)",
+   "crs": "lap metres, altitude m"
+  },
+  {
+   "id": "D6",
+   "url": "https://raw.githubusercontent.com/bacinger/f1-circuits/master/f1-circuits.geojson",
+   "file": "tools/SpaSurvey/cache/bacinger/f1-circuits.geojson",
+   "retrieved": "2026-11-25T02:30:15+00:00",
+   "bytes": 116167,
+   "sha256_16": "71b8ca6b456994c3",
+   "name": "bacinger f1-circuits GeoJSON",
+   "licence": "MIT",
+   "crs": "WGS84 lat/lon"
+  },
+  {
+   "id": "D2",
+   "name": "SPW Relief Wallonie MNT 2021-2022, 0.5 m DTM",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/RELIEF/WALLONIE_MNT_2021_2022/MapServer/identify",
+   "crs": "EPSG:3812 / heights EPSG:5710",
+   "units": "m",
+   "licence": "CC BY 4.0, © SPW 2021-2022",
+   "vertical_accuracy": "0.12 m (metadata)",
+   "samples": 33355,
+   "file": "tools/SpaSurvey/cache/dtm2022.json",
+   "access": "multipoint identify at 0.25 m display resolution (native pixel values)"
+  },
+  {
+   "id": "D2_DSM",
+   "name": "SPW Relief Wallonie MNS 2021-2022, 0.5 m DSM (tree heights only)",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/RELIEF/WALLONIE_MNS_2021_2022/MapServer/identify",
+   "crs": "EPSG:3812 / heights EPSG:5710",
+   "licence": "CC BY 4.0, © SPW 2021-2022",
+   "samples": 10030
+  },
+  {
+   "id": "D2_1m",
+   "name": "SPW Profil geoprocessing service (1 m Walloon DTM) - first build only, kept for comparison",
+   "url": "https://geoservices.wallonie.be/arcgis/rest/services/GEOTRAITEMENT/Profil/GPServer/Profil/execute",
+   "crs": "EPSG:3812",
+   "files": "tools/SpaSurvey/cache/profil1m/*.json",
+   "comparison": {
+    "mean_m": -0.009958331978772385,
+    "median_abs_m": 0.04025581249586474,
+    "p95_abs_m": 0.11754634833058636,
+    "worst": [
+     {
+      "lap_m": 260.0141255289994,
+      "diff_m": 0.29713252669993273
+     },
+     {
+      "lap_m": 262.0142341869148,
+      "diff_m": 0.2764180943475265
+     },
+     {
+      "lap_m": 264.01434284483014,
+      "diff_m": 0.2605185315019083
+     },
+     {
+      "lap_m": 258.01401687108404,
+      "diff_m": 0.25072663307887644
+     },
+     {
+      "lap_m": 256.01390821316863,
+      "diff_m": 0.2129652179618018
+     },
+     {
+      "lap_m": 255.01385388421096,
+      "diff_m": 0.20947769124800408
+     },
+     {
+      "lap_m": 266.01445150274554,
+      "diff_m": 0.20236903366592407
+     },
+     {
+      "lap_m": 1040.0565021159975,
+      "diff_m": -0.19680756737650307
+     }
+    ]
+   }
+  },
+  {
+   "id": "D7",
+   "name": "User map centreline (spa_map_centerline_10m.csv)",
+   "file": "tools/SpaSurvey/cache/user/spa_map_centerline_10m.csv",
+   "use": "check V15 only"
+  },
+  {
+   "id": "D8",
+   "name": "User Assetto Corsa onboard video",
+   "use": "feel reference only; not used as data"
+  }
+ ]
+}

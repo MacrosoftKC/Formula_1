@@ -36,7 +36,7 @@ public partial class TimeTrialSession : SessionBase
         // start on the run to the line after the final corner, standing still
         double spawnS = Track.Center.Wrap(Track.Data.Corners[^1].ExitS + 30);
         var car = SpawnCar(team, driver, Track.TrackTransform(spawnS, 0, 0.01f), compound, 12, cfg.Setup, player: true);
-        car.PU.Mode = ErsMode.Hotlap;
+        if (car.PU.HasErs) car.PU.Mode = ErsMode.Hotlap;
         car.TyreWearMultiplier = 1.0;
         foreach (var t in car.Tyres) { t.SurfaceTemp = 95; t.CoreTemp = 92; }
         AttachPlayer(car);
@@ -64,7 +64,7 @@ public partial class TimeTrialSession : SessionBase
             screen.DeltaText = () => LiveDelta() is { } d ? LapTimer.Format(d, sign: true) : "";
             screen.LapText = () => _timer.Started ? $"LAP {_timer.LapsCompleted + 1}" : "OUT";
         }
-        Hud.ShowMessage("TIME TRIAL  —  ALBERT PARK", 3);
+        Hud.ShowMessage($"TIME TRIAL  —  {Track.Data.Name.ToUpperInvariant()}", 3);
     }
 
     private double? LiveDelta()
@@ -83,7 +83,7 @@ public partial class TimeTrialSession : SessionBase
         if (car == null) return;
 
         // DRS may be used freely in the zones during Time Trial (as in qualifying)
-        car.DrsAllowed = Track.DrsZoneAt(car.TrackS) >= 0;
+        car.DrsAllowed = car.Team.Id != F1.Core.Data.TeamData.F2004 && Track.DrsZoneAt(car.TrackS) >= 0;
 
         var evt = _timer.Update(car.TrackS, Time);
         switch (evt)
@@ -207,6 +207,9 @@ public partial class TimeTrialSession : SessionBase
 
     private void CheckAutotest(Vehicle.Car car)
     {
+        // --flatout=FROM-TO: the test driver keeps its foot down through a stretch (e.g. Eau Rouge-Raidillon)
+        if (car.Driver is AI.AIDriver flatDriver && flatDriver.FlatOut == null && App.Instance.Arg("flatout") is { } flat && flat.Split('-') is [var f0, var f1])
+            flatDriver.FlatOut = (double.Parse(f0), double.Parse(f1));
         if (!float.IsFinite(car.GlobalPosition.X) || !float.IsFinite(car.SpeedMs))
         {
             GD.PrintErr("AUTOTEST FAIL: non-finite car state");
@@ -219,10 +222,20 @@ public partial class TimeTrialSession : SessionBase
             GD.Print($"  OFF at s={car.TrackS:0} d={car.TrackD:0.0} v={car.SpeedKmh:0} tgt={tg:0} line={Line.SpeedAt(car.TrackS) * 3.6:0} steer={car.SteerApplied:0.00} slipF={car.Wheels[0].SlipAngle:0.000} slipR={car.Wheels[2].SlipAngle:0.000} brk={car.BrakeApplied:0.00}");
         }
         else if (car.WheelsOffTrack == 0) _offLogged = false;
+        // --trace=FROM-TO prints the car state every 0.05 s while it is between two track distances (diagnostics)
+        if (App.Instance.Arg("trace") is { } trace && trace.Split('-') is [var traceFrom, var traceTo] && car.TrackS >= double.Parse(traceFrom) && car.TrackS <= double.Parse(traceTo)
+            && (Time % 0.05) < 1.0 / 240)
+        {
+            string W(int i) => $"{car.Wheels[i].Fz / 1000:0.0}{car.Wheels[i].Surface.Type.ToString()[..2]}";
+            GD.Print($"  TRACE t={Time:0.00} s={car.TrackS:0.0} d={car.TrackD:0.00} v={car.SpeedKmh:0} yaw={car.AngularVelocity.Y:0.00} " +
+                     $"steer={car.SteerApplied:0.00} thr={car.ThrottleApplied:0.00} brk={car.BrakeApplied:0.00} fz={W(0)} {W(1)} {W(2)} {W(3)} " +
+                     $"slipF={car.Wheels[0].SlipAngle:0.000} slipR={car.Wheels[2].SlipAngle:0.000} y={car.GlobalPosition.Y:0.00}");
+        }
         if (Time > 1 && (Time % 5) < 1.0 / 240)
         {
             double tgt = car.Driver is AI.AIDriver ai ? ai.LastTarget * 3.6 : 0;
-            GD.Print($"t={Time:0} s={car.TrackS:0} v={car.SpeedKmh:0} tgt={tgt:0} thr={car.ThrottleApplied:0.00} brk={car.BrakeApplied:0.00} g={car.Gear} rpm={car.Rpm:0} axle={car.DebugAxle:0} fx={car.DebugFx:0} drag={car.DebugDrag:0} kR={car.Wheels[2].SlipRatio:0.000} fzR={car.Wheels[2].Fz:0} off={car.WheelsOffTrack} tyre={car.Tyres[0].SurfaceTemp:0}/{car.Tyres[2].SurfaceTemp:0}");
+            GD.Print($"t={Time:0} s={car.TrackS:0} v={car.SpeedKmh:0} tgt={tgt:0} thr={car.ThrottleApplied:0.00} brk={car.BrakeApplied:0.00} g={car.Gear} rpm={car.Rpm:0} axle={car.DebugAxle:0} fx={car.DebugFx:0} drag={car.DebugDrag:0} kR={car.Wheels[2].SlipRatio:0.000} fzR={car.Wheels[2].Fz:0} off={car.WheelsOffTrack} tyre={car.Tyres[0].SurfaceTemp:0}/{car.Tyres[2].SurfaceTemp:0}" +
+                (App.Instance.Arg("perf") == null ? "" : $" fps={Engine.GetFramesPerSecond():0} physics={Performance.GetMonitor(Performance.Monitor.TimePhysicsProcess) * 1000:0.0}ms frame={Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000:0.0}ms"));
         }
         foreach (var c in Track.Data.Corners)
         {

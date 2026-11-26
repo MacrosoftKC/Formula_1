@@ -18,7 +18,7 @@ public partial class CarModel : Node3D
     private readonly Node3D[] _wheelRoots = new Node3D[4];
     private readonly Node3D[] _wheelSteer = new Node3D[4];
     private readonly Node3D[] _wheelSpin = new Node3D[4];
-    private Node3D _drsFlap = null!;
+    private Node3D? _drsFlap;
     private Node3D _steeringWheel = null!;
     private Node3D? _driverGloves;
     private MeshInstance3D _rainLight = null!;
@@ -94,7 +94,7 @@ public partial class CarModel : Node3D
 
     public void Build(TeamData team, DriverData driver)
     {
-        if (team.Id is "red_bull" or TeamData.W11)
+        if (team.Id is "red_bull" or TeamData.W11 or TeamData.F2004)
             BuildAuthoredCar(team, driver);
         else
             BuildTeamModel(team, driver);
@@ -104,20 +104,27 @@ public partial class CarModel : Node3D
     private void BuildAuthoredCar(TeamData team, DriverData driver)
     {
         bool w11 = team.Id == TeamData.W11;
-        string path = w11 ? "res://art/cars/w11/W11.scn" : "res://art/cars/rb20/RB20.scn";
+        bool ferrari = team.Id == TeamData.F2004;
+        string path = team.Id switch
+        {
+            TeamData.F2004 => "res://art/cars/f2004/F2004.scn",
+            TeamData.W11 => "res://art/cars/w11/W11.scn",
+            _ => "res://art/cars/rb20/RB20.scn"
+        };
         var car = GD.Load<PackedScene>(path).Instantiate<Node3D>();
-        _emptyShowroomSeat = !w11;
+        _emptyShowroomSeat = team.Id == "red_bull";
         if (w11) OnboardOffset = new Vector3(0, -0.164f, 0);
+        if (ferrari) OnboardOffset = new Vector3(0, -0.228f, -0.014f);
         AddChild(car);
         FrontWing = car.GetNode<Node3D>("FrontWing");
         EngineCover = car.GetNode<MeshInstance3D>("EngineCover");
-        _drsFlap = car.GetNode<Node3D>("DrsFlap");
+        _drsFlap = ferrari ? null : car.GetNode<Node3D>("DrsFlap");
         _steeringWheel = car.GetNode<Node3D>("SteeringWheel");
         _driverGloves = _steeringWheel.GetNode<Node3D>("Gloves");
         WheelDisplay = _steeringWheel.GetNode<Node3D>("Display");
         var helmet = car.GetNode<MeshInstance3D>("Helmet");
         DriverHead = helmet;
-        if (!w11)
+        if (team.Id == "red_bull")
         {
             var noseNormal = new Vector3(0, 1, -0.18f).Normalized();
             AddLabel(car, driver.Number.ToString(), new Vector3(0, 0.682f, -1.55f),
@@ -146,7 +153,7 @@ public partial class CarModel : Node3D
             _wheelSpin[i] = _wheelSteer[i].GetNode<Node3D>($"Spin{corner}");
         }
         // Align the visual slicks with the simulation contact plane through suspension travel.
-        _wheelHubOffset = _wheelRoots[Car.FL].Position.Y - (w11 ? Car.W11WheelRadius : Car.WheelRadius);
+        _wheelHubOffset = _wheelRoots[Car.FL].Position.Y - Car.TyreRadius(team.Id);
     }
 
     /// <summary>The RB20 is displayed with an empty seat in the exterior model-sheet views.</summary>
@@ -820,7 +827,7 @@ public partial class CarModel : Node3D
         }
         float target = car.DrsOpen ? 0.75f : 0f;
         _drsAngle = Mathf.MoveToward(_drsAngle, target, (float)dt * 6f);
-        _drsFlap.Rotation = new Vector3(_drsAngle, 0, 0);
+        if (_drsFlap != null) _drsFlap.Rotation = new Vector3(_drsAngle, 0, 0);
         _steeringWheel.Rotation = new Vector3(_steeringWheelTilt, 0, 0);
         _steeringWheel.RotateObjectLocal(Vector3.Forward, -car.SteerApplied * 1.6f);
 
@@ -835,6 +842,7 @@ public partial class CarModel : Node3D
     /// <summary>Snaps the DRS flap open or shut without a car driving it (showroom preview).</summary>
     public void SetDrsOpen(bool open)
     {
+        if (_drsFlap == null) return;
         DrsOpenPreview = open;
         _drsAngle = open ? 0.75f : 0f;
         _drsFlap.Rotation = new Vector3(_drsAngle, 0, 0);

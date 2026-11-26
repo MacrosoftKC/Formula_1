@@ -68,13 +68,14 @@ public partial class SteeringWheelDisplay : Node3D
     {
         if (!IsInstanceValid(_car)) return;
         float rpm = _car.Rpm;
-        int lit = (int)Math.Clamp((rpm - 9000) / (11900 - 9000) * 15, 0, 15);
-        bool flash = rpm > 11800 && (Time.GetTicksMsec() / 80) % 2 == 0;
+        float shift = (float)_car.PU.UpshiftRpm;
+        int lit = (int)Math.Clamp((rpm / shift - 9000f / 11900) / (2900f / 11900) * 15, 0, 15);
+        bool flash = rpm > shift - 100 && (Time.GetTicksMsec() / 80) % 2 == 0;
         for (int i = 0; i < _leds.Count; i++) _leds[i].Visible = flash || i < lit;
         _gear.Text = _car.Gear switch { 0 => "N", < 0 => "R", _ => _car.Gear.ToString() };
         _speed.Text = $"{_car.SpeedKmh:0}";
         _mode.Text = _car.PitLimiter ? "PIT LIM" : _car.DrsOpen ? "DRS OPEN" : _car.DrsAllowed ? "DRS" : $"BB {_car.Setup.BrakeBias:0}";
-        _ers.Text = $"ERS {_car.PU.StoreFraction * 100:0}% {_car.PU.Mode.ToString().ToUpperInvariant()[..3]}";
+        _ers.Text = _car.PU.HasErs ? $"ERS {_car.PU.StoreFraction * 100:0}% {_car.PU.Mode.ToString().ToUpperInvariant()[..3]}" : $"{rpm:0} RPM";
         _delta.Text = DeltaText?.Invoke() ?? "";
         _lap.Text = LapText?.Invoke() ?? "";
         _delta.AddThemeColorOverride("font_color", _delta.Text.StartsWith("-") ? new Color(0.2f, 1f, 0.3f) : new Color(1f, 0.35f, 0.3f));

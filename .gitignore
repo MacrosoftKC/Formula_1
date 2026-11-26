@@ -21,3 +21,6 @@ Thumbs.db
 
 # audio previews rendered by tools/AudioPreview
 *.wav
+
+# Spa survey downloads (re-fetched by tools/SpaSurvey/fetch.py)
+tools/SpaSurvey/cache/

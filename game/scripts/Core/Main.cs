@@ -3,7 +3,7 @@ using Godot;
 namespace F1.Game.Core;
 
 /// <summary>Entry scene: routes to the main menu, or straight to a scene / automated test (--scene=menu|tt|cars|track,
-/// --autotest=boot|tt|ttplayer|trackshots|carshots|menushot).</summary>
+/// --autotest=boot|tt|ttplayer|trackshots|trackbench|carshots|menushot).</summary>
 public partial class Main : Node
 {
     public override void _Ready()
@@ -17,7 +17,7 @@ public partial class Main : Node
             game.Quit(0);
             return;
         }
-        if (test == "trackshots" || game.Arg("scene") == "track")
+        if (test is "trackshots" or "trackbench" || game.Arg("scene") == "track")
         {
             game.ChangeScene("res://scenes/TrackPreview.tscn");
             return;
@@ -34,7 +34,8 @@ public partial class Main : Node
         }
         if (test is "tt" or "ttplayer" || game.Arg("scene") == "tt")
         {
-            game.Session = new SessionConfig { Mode = SessionMode.TimeTrial, TeamId = game.Arg("team") ?? "mclaren" };
+            game.Session.TeamId = game.Arg("team") ?? "mclaren";
+            if (game.Arg("track") == null) game.Session.TrackId = DataFiles.AlbertParkId;
             game.ChangeScene("res://scenes/TimeTrial.tscn");
             return;
         }

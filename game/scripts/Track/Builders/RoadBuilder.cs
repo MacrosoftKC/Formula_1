@@ -16,7 +16,7 @@ public static class RoadBuilder
     public static readonly Color Concrete = new(0.62f, 0.62f, 0.64f);
     public static readonly Color PitAsphalt = new(0.19f, 0.19f, 0.21f);
 
-    private const float RoadH = 0.02f, LineH = 0.024f, GravelH = 0.016f, KerbTop = 0.055f;
+    private const float RoadH = 0.02f, LineH = 0.024f, GravelH = 0.016f;
     private const int ChunkSize = 64;
     private const float LineWidth = 0.25f;
 
@@ -59,18 +59,30 @@ public static class RoadBuilder
 
         if (kerb)
         {
+            // red and white at both circuits (Spa: light stripes measured white in the 2023 orthophoto)
             var c = (i % 2 == 0) ? KerbRed : KerbWhite;
             float k = TrackSurface.KerbWidth;
-            m.QuadUp(f.At(i, sign * edge0, KerbTop), f.At(j, sign * edge1, KerbTop), f.At(j, sign * (edge1 + k), RoadH + 0.01f), f.At(i, sign * (edge0 + k), RoadH + 0.01f), c);
-            // vertical lip on the track side
-            var a = f.At(i, sign * edge0, RoadH); var b = f.At(j, sign * edge1, RoadH);
-            var at = f.At(i, sign * edge0, KerbTop); var bt = f.At(j, sign * edge1, KerbTop);
-            if (sign > 0) m.Quad(a, at, bt, b, c.Darkened(0.2f)); else m.Quad(b, bt, at, a, c.Darkened(0.2f));
+            // chamfered profile matching the physics (TrackSurface.KerbProfile): up from road level, across, down
+            float[] across = { 0, TrackSurface.KerbRamp * 0.5f, TrackSurface.KerbRamp, k - TrackSurface.KerbRamp, k - TrackSurface.KerbRamp * 0.5f, k };
+            for (int q = 0; q + 1 < across.Length; q++)
+            {
+                float e0 = across[q], e1 = across[q + 1];
+                float h0 = RoadH + 0.004f + TrackSurface.KerbProfile(e0), h1 = RoadH + 0.004f + TrackSurface.KerbProfile(e1);
+                m.QuadUp(f.At(i, sign * (edge0 + e0), h0), f.At(j, sign * (edge1 + e0), h0),
+                    f.At(j, sign * (edge1 + e1), h1), f.At(i, sign * (edge0 + e1), h1), q == 0 || q == 4 ? c.Darkened(0.12f) : c);
+            }
             outer0 = Math.Max(outer0, edge0 + k); outer1 = Math.Max(outer1, edge1 + k);
         }
         else
         {
             m.QuadUp(f.At(i, sign * edge0, RoadH), f.At(j, sign * edge1, RoadH), f.At(j, sign * outer1, RoadH), f.At(i, sign * outer0, RoadH), AsphaltLight);
+        }
+
+        if (f.Surface.HasRelief)
+        {
+            var grass = Color.FromHtml("#709050");
+            m.QuadUp(f.At(i, sign * outer0, -.007f), f.At(j, sign * outer1, -.007f),
+                f.At(j, sign * (b1 + .5f), -.007f), f.At(i, sign * (b0 + .5f), -.007f), grass);
         }
 
         if (runoff is 'R' or 'A' or 'P')
@@ -99,6 +111,14 @@ public static class RoadBuilder
                 double s0 = -0.6 + row * 0.6, s1 = s0 + 0.6;
                 m.QuadUp(W(ts, s0, d0, H), W(ts, s1, d0, H), W(ts, s1, d1, H), W(ts, s0, d1, H), color);
             }
+
+        // a separate start line at the head of the grid (Spa starts ahead of the pit building, finishes further on)
+        if (ts.Data.StartLineS > 0)
+        {
+            double s0 = ts.Data.StartLineS - 0.25, s1 = ts.Data.StartLineS + 0.25;
+            float l0 = (float)ts.HalfWidthLeft(s0), r0 = (float)ts.HalfWidthRight(s0);
+            m.QuadUp(W(ts, s0, -r0, H), W(ts, s1, -r0, H), W(ts, s1, l0, H), W(ts, s0, l0, H), Line);
+        }
 
         // grid boxes: front bar plus short side lines, numbered from pole
         foreach (var slot in ts.Data.Grid)
@@ -129,7 +149,7 @@ public static class RoadBuilder
         }
     }
 
-    private static Vector3 W(TrackSurface ts, double s, double d, float h) => Units.ToWorld(ts.Center.ToWorld(s, d), h);
+    private static Vector3 W(TrackSurface ts, double s, double d, float h) => ts.WorldPoint(s, d, h);
 
     private static void BuildPitLane(Node3D root, TrackFrames f)
     {
@@ -139,7 +159,7 @@ public static class RoadBuilder
         float half = (float)pitData.Width * 0.5f;
         var m = new LowPolyMesh();
         int n = pit.Count;
-        Vector3 PW(int i, float d, float h) => Units.ToWorld(pit.Point(i) + pit.Normal(i) * d, h);
+        Vector3 PW(int i, float d, float h) => Units.ToWorld(pit.Point(i) + pit.Normal(i) * d, ts.PitSurfaceHeight(pit.SAt(i), d) + h);
 
         for (int i = 0; i < n - 1; i++)
         {
@@ -160,7 +180,7 @@ public static class RoadBuilder
             var e0 = W(ts, s0, -ts.HalfWidthRight(s0) - TrackSurface.VergeWidth, RoadH - 0.004f);
             var e1 = W(ts, s1, -ts.HalfWidthRight(s1) - TrackSurface.VergeWidth, RoadH - 0.004f);
             var p0 = PW(i, half, RoadH - 0.004f); var p1 = PW(i + 1, half, RoadH - 0.004f);
-            if (e0.DistanceTo(p0) > 0.3f)
+            if (e0.DistanceTo(p0) > 0.3f && (!ts.HasRelief || e0.DistanceTo(p0) < 16))
                 m.QuadUp(p0, p1, e1, e0, Concrete.Lightened(0.05f));
         }
 
@@ -176,8 +196,8 @@ public static class RoadBuilder
             var color = Units.Hex(teams[b % teams.Count].Primary);
             double u0 = pitData.Boxes[b] - 5.5, u1 = pitData.Boxes[b] + 1.0;
             float d0 = (float)pitData.BoxOffset - 2.2f, d1 = (float)pitData.BoxOffset + 2.2f;
-            var a = Units.ToWorld(pit.ToWorld(u0, d0), LineH); var bq = Units.ToWorld(pit.ToWorld(u1, d0), LineH);
-            var c = Units.ToWorld(pit.ToWorld(u1, d1), LineH); var dq = Units.ToWorld(pit.ToWorld(u0, d1), LineH);
+            var a = ts.PitPoint(u0, d0, LineH); var bq = ts.PitPoint(u1, d0, LineH);
+            var c = ts.PitPoint(u1, d1, LineH); var dq = ts.PitPoint(u0, d1, LineH);
             m.QuadUp(a, bq, c, dq, color.Darkened(0.15f));
         }
         root.AddChild(m.ToInstance("PitLane", castShadows: false));

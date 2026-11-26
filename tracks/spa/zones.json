@@ -1,0 +1,72 @@
+{
+ "note": "Lap metres from the measured control line. 2026 endpoints are envelopes between named corners: no zone length is published.",
+ "season2026": [
+  {
+   "name": "Straight Mode: start/finish straight",
+   "fromS": 6693.4,
+   "toS": 204.0,
+   "status": "ENVELOPE",
+   "provenance": "SOURCED(formula1.com 2026 zones) / DERIVED(T19 exit→T1 entry)"
+  },
+  {
+   "name": "Straight Mode: La Source to Eau Rouge",
+   "fromS": 288.0,
+   "toS": 869.0,
+   "status": "ENVELOPE",
+   "provenance": "SOURCED(formula1.com, 'between Turns 2 and 3' read as T1-T2) / DERIVED"
+  },
+  {
+   "name": "Straight Mode: Kemmel",
+   "fromS": 1168.1,
+   "toS": 2229.1,
+   "status": "ENVELOPE",
+   "provenance": "SOURCED / DERIVED(T4 exit→T5 entry)"
+  },
+  {
+   "name": "Straight Mode: T15-T16",
+   "fromS": 5473.3,
+   "toS": 5646.3,
+   "status": "ENVELOPE",
+   "provenance": "SOURCED / DERIVED; alternative start at T14 exit",
+   "alternativeFromS": 4857.3
+  },
+  {
+   "name": "Straight Mode: T17-T18",
+   "fromS": 6108.3,
+   "toS": 6561.4,
+   "status": "ENVELOPE",
+   "provenance": "SOURCED; barred under Low Grip Status"
+  },
+  {
+   "name": "Overtake Mode",
+   "detectionS": 6652.4,
+   "activationS": 6693.4,
+   "status": "ENVELOPE",
+   "provenance": "SOURCED(FIA 2026: detection at T19 / Safety Car Line 1, activation at T19 exit)"
+  }
+ ],
+ "legacy2025Drs": [
+  {
+   "number": 1,
+   "detectionS": 673.0,
+   "activationS": 1443.1,
+   "endS": 2203.3,
+   "status": "ENVELOPE",
+   "provenance": "DERIVED(FIA 2025: detection 240 m before T2 / 160 m before T18, activation 305 m after T4 / 30 m after T19; user map ends)"
+  },
+  {
+   "number": 2,
+   "detectionS": 6435.4,
+   "activationS": 6682.4,
+   "endS": 197.3,
+   "status": "ENVELOPE",
+   "provenance": "DERIVED(FIA 2025: detection 240 m before T2 / 160 m before T18, activation 305 m after T4 / 30 m after T19; user map ends)"
+  }
+ ],
+ "speedTrap": {
+  "s": 1245.3,
+  "status": "ENVELOPE",
+  "provenance": "DERIVED(user map, ≈74 m after T4 exit)"
+ },
+ "selected": "legacy2025Drs (the game runs the 2025 regulations)"
+}

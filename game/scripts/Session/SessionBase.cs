@@ -29,13 +29,19 @@ public abstract partial class SessionBase : Node3D
     public SessionConfig Config => App.Instance.Session;
     public bool Autotest => App.Instance.Arg("autotest") != null;
 
-    private static RacingLine? _cachedLine;
+    private static readonly Dictionary<string, RacingLine> Lines = new();
 
     public override void _Ready()
     {
         World = new TrackWorld { Name = "TrackWorld", BuildScenery = App.Instance.Arg("noscenery") == null };
         AddChild(World);
-        Line = _cachedLine ??= RacingLine.Build(Track.Data, new PerformanceModel());
+        // --linemargin=M (tests) moves the AI line M metres inside the white lines, e.g. 0.6 to ride the kerbs
+        double margin = double.TryParse(App.Instance.Arg("linemargin"), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var m) ? m : Track.HasRelief ? 1.8 : 1.3;
+        string key = $"{Track.Data.Id}@{margin}";
+        if (!Lines.TryGetValue(key, out var line))
+            Lines[key] = line = RacingLine.Build(Track.Data, new PerformanceModel(), margin: margin);
+        Line = line;
 
         CameraRig = new CameraRig { Name = "CameraRig" };
         AddChild(CameraRig);
@@ -51,7 +57,7 @@ public abstract partial class SessionBase : Node3D
         {
             int side = c.Direction > 0 ? -1 : 1;
             double barrier = side > 0 ? Track.BarrierLeft(c.ApexS) : Track.BarrierRight(c.ApexS);
-            CameraRig.TvPositions.Add(Units.ToWorld(Track.Center.ToWorld(c.ApexS, side * (barrier + 6)), 7));
+            CameraRig.TvPositions.Add(Track.WorldPoint(c.ApexS, side * (barrier + 6), 7));
         }
         SetupSession();
         if (App.Instance.Arg("shots") is { } dir)

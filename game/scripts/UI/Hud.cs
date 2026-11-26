@@ -81,7 +81,7 @@ public partial class Hud : CanvasLayer
     private readonly Panel[] _sectorBoxes = new Panel[3];
     private readonly ColorRect[] _tyres = new ColorRect[4];
     private readonly Label[] _tyreText = new Label[4];
-    private ColorRect _rpm = null!, _throttle = null!, _brake = null!, _ersBar = null!;
+    private ColorRect _rpm = null!, _throttle = null!, _brake = null!, _ersBar = null!, _ersBg = null!;
     private Minimap _minimap = null!;
     private double _messageUntil;
     private bool _visible = true;
@@ -138,8 +138,8 @@ public partial class Hud : CanvasLayer
         c.AddChild(brBg);
         _brake = new ColorRect { Color = HudStyle.Red, Position = new Vector2(184, 104), Size = new Vector2(0, 8) };
         c.AddChild(_brake);
-        var ersBg = new ColorRect { Color = new Color(1, 1, 1, 0.08f), Position = new Vector2(12, 122), Size = new Vector2(332, 8) };
-        c.AddChild(ersBg);
+        _ersBg = new ColorRect { Color = new Color(1, 1, 1, 0.08f), Position = new Vector2(12, 122), Size = new Vector2(332, 8) };
+        c.AddChild(_ersBg);
         _ersBar = new ColorRect { Color = HudStyle.Yellow, Position = new Vector2(12, 122), Size = new Vector2(0, 8) };
         c.AddChild(_ersBar);
         _ers = HudStyle.Label(c, "ERS", 16, HudStyle.Dim);
@@ -212,16 +212,19 @@ public partial class Hud : CanvasLayer
         _speed.Text = metric ? $"{Car.SpeedKmh:0}" : $"{Car.SpeedKmh * 0.621371f:0}";
         _unit.Text = metric ? "KM/H" : "MPH";
         _gear.Text = Car.Gear switch { 0 => "N", < 0 => "R", _ => Car.Gear.ToString() };
-        float rpm01 = Math.Clamp((Car.Rpm - 4000) / (12500f - 4000f), 0, 1);
+        float shift = (float)Car.PU.UpshiftRpm;
+        float rpm01 = Math.Clamp((Car.Rpm - 4000) / (shift + 600 - 4000), 0, 1);
         _rpm.Size = new Vector2(332 * rpm01, 10);
-        _rpm.Color = Car.Rpm > 11700 ? HudStyle.Purple : Car.Rpm > 10800 ? HudStyle.Red : HudStyle.Green;
+        _rpm.Color = Car.Rpm > shift - 200 ? HudStyle.Purple : Car.Rpm > shift - 1100 ? HudStyle.Red : HudStyle.Green;
         _throttle.Size = new Vector2(160 * Car.ThrottleApplied, 8);
         _brake.Size = new Vector2(160 * Car.BrakeApplied, 8);
         _ersBar.Size = new Vector2(332 * (float)Car.PU.StoreFraction, 8);
+        _ersBar.Visible = _ersBg.Visible = Car.PU.HasErs;
         _ersBar.Color = Car.PU.OvertakeActive ? HudStyle.Purple : Car.PU.MguKPowerW > 0 ? HudStyle.Yellow : new Color(0.3f, 0.75f, 1f);
-        _ers.Text = $"ERS {Car.PU.StoreFraction * 100:0}% {(Car.PU.OvertakeActive ? "OVERTAKE" : Car.PU.Mode.ToString().ToUpperInvariant())}";
+        _ers.Text = Car.PU.HasErs ? $"ERS {Car.PU.StoreFraction * 100:0}% {(Car.PU.OvertakeActive ? "OVERTAKE" : Car.PU.Mode.ToString().ToUpperInvariant())}" : $"{Car.Rpm:0} RPM";
         _fuel.Text = $"FUEL {Car.PU.FuelKg:0.0}kg {Car.PU.Mix.ToString().ToUpperInvariant()[..3]}";
         _drs.Text = "DRS";
+        _drs.Visible = Car.Team.Id != F1.Core.Data.TeamData.F2004;
         _drs.AddThemeColorOverride("font_color", Car.DrsOpen ? HudStyle.Green : Car.DrsAllowed ? HudStyle.Text : new Color(1, 1, 1, 0.25f));
         _limiter.Visible = Car.PitLimiter;
 

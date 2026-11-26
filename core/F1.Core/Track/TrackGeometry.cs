@@ -155,6 +155,20 @@ public sealed class TrackGeometry
         return a + (b - a) * t;
     }
 
+    /// <summary>
+    /// Catmull-Rom interpolation of a per-sample profile: passes through every sample with a continuous slope, so a
+    /// wheel rolling over the profile sees no sudden change of vertical velocity between samples.
+    /// </summary>
+    public double SampleSmooth(IReadOnlyList<double> profile, double s)
+    {
+        var (i, t) = Locate(s);
+        int n = profile.Count;
+        double P(int k) => profile[Closed ? ((k % n) + n) % n : Math.Clamp(k, 0, n - 1)];
+        double p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+        double t2 = t * t, t3 = t2 * t;
+        return 0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (3 * p1 - p0 - 3 * p2 + p3) * t3);
+    }
+
     public int NearestIndex(double s)
     {
         var (i, t) = Locate(s);

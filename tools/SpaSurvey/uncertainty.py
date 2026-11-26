@@ -1,0 +1,46 @@
+"""What the Spa build knows and how: one row per feature (feature, status, reason). Used by checks.py (V14) and
+report.py (uncertainty_report.md). Status is MEASURED, DERIVED, SOURCED, ASSUMED (visible placeholder) or UNKNOWN."""
+
+FEATURES = [
+    ("Centreline (plan)", "MEASURED", "Midline of both painted track-limit lines traced in SPW ORTHO 2023 (25 cm), periodic cubic smoothing spline, 0.15 m RMS budget. The TUM/OSM centreline is only the search prior."),
+    ("Lap length", "MEASURED", "6,987-6,988 m plan along the painted midline (both edges: 7,028 m left, 6,948 m right). Conflicts with the published 7,004 m; not rescaled."),
+    ("Control (finish) line", "MEASURED", "Chequered stripe found in D3, 1.25 m from the research estimate (TUM s = 140 m). Sample 0 of track.json."),
+    ("Start line", "MEASURED", "Separate solid white line ahead of the first grid box (D3), as the operator map shows."),
+    ("Grid boxes", "MEASURED", "26 painted box front lines in D3 (16 m ladder per side, pole on the right); the game uses the first 20."),
+    ("Track width", "MEASURED", "Distance from the centreline to each traced painted line (D3). No published Spa width exists."),
+    ("Elevation profile", "MEASURED", "SPW Relief Wallonie MNT 2021-2022, 0.5 m, sampled at every metre (identify on the map service); 5 m median then a periodic smoothing spline with a 4 cm RMS budget. Tiles at Spa flown 2022-02-28 to 2022-03-03, during the 2021-22 works."),
+    ("Bank / crossfall", "DERIVED", "DTM heights 1 m inside each painted line every 3 m; 9-sample median + 6 m gaussian. Noise about ±0.7 percentage points."),
+    ("Kerb positions", "MEASURED", "Red paint detected 0.3-2.0 m outside the painted line in D3 (per 3 m sample)."),
+    ("Kerb colours", "MEASURED", "Colour of the light stripes of each kerb run averaged from D3 (see build_log.json kerb_runs)."),
+    ("Kerb profile and height", "ASSUMED", "30 mm flat kerb with 0.35 m chamfers (game physics and mesh). No Spa kerb profile is published; not a claim about the real kerbs."),
+    ("Run-off surface type", "DERIVED", "Gravel and asphalt intervals read by eye from unwrapped D3 strips (first build), consistent with the 2021-22 works list; grass elsewhere. An automatic colour classifier was rejected (dry grass, shadow and grey gravel read as asphalt)."),
+    ("Run-off width and barrier line", "DERIVED", "Read by eye from unwrapped D3 strips at 64 lap positions (first build), interpolated linearly; about ±3 m; never closer than 1.8 m to the edge."),
+    ("Barrier type (wall, guardrail, tyres, TecPro)", "UNKNOWN", "Not measurable from the orthophoto. The game draws an ASSUMED generic wall with red/yellow impact blocks beside asphalt and gravel run-off."),
+    ("Debris fence height", "UNKNOWN", "Game uses an ASSUMED 3 m fence on every wall."),
+    ("Pit lane path", "DERIVED", "Hand trace of D3 (36 points, spline, 240 samples) from the first build."),
+    ("Pit lane elevation", "MEASURED", "2022 DTM along the traced path, blended into the road over 25 m at the entry and exit."),
+    ("Pit lane speed limit", "UNKNOWN", "Not found for Spa. The game uses an ASSUMED 80 km/h."),
+    ("Pit boxes and garage count", "UNKNOWN", "Game places 10 ASSUMED boxes evenly along the pit lane."),
+    ("Marshal posts", "UNKNOWN", "The operator map shows numbered posts but they are not digitised; the game has 20 ASSUMED posts."),
+    ("Sector lines", "DERIVED", "ENVELOPE from the user map (S1 end ~2,216 m, S2 end ~4,935 m); not published."),
+    ("2025 DRS zones (game)", "DERIVED", "FIA distances (240 m before T2, 305 m after T4, 160 m before T18, 30 m after T19) from the measured apexes; ENVELOPE."),
+    ("2026 Straight Mode / Overtake zones", "DERIVED", "ENVELOPE between named corners (no lengths published); zones.json only, the game runs 2025 rules."),
+    ("Terrain", "MEASURED", "2022 DTM on a 32 m grid plus two rings 7 m and 16 m beyond the barriers, Delaunay-triangulated with the road edges; faceted surface dressing."),
+    ("Tree positions", "DERIVED", "Dark-green canopy in D3 on a jittered 13 m grid, kept where the 2022 surface model stands 4 m or more above the terrain model."),
+    ("Tree heights", "MEASURED", "DSM minus DTM (2021-22) at each tree, clamped 4-40 m; the low-poly tree shape is stylised."),
+    ("Grandstands", "ASSUMED", "Generic stands at the named zones (La Source, Eau Rouge/Raidillon, Les Combes, Bus Stop, start/finish); positions by lap metre, not measured."),
+    ("Pit building and paddock buildings", "ASSUMED", "The game's generic pit complex; real footprints not used."),
+    ("Uhoda Tower", "UNKNOWN", "Inauguration status for July 2026 unverified; not modelled."),
+    ("Eau Rouge stream crossing", "UNKNOWN", "Not modelled."),
+    ("Asphalt, line and kerb paint palette", "ASSUMED", "Low-poly palette; kerb hues follow the measured light-stripe class."),
+    ("Advertising boards", "ASSUMED", "Neutral panels; no real sponsor or team marks."),
+]
+
+CONFLICTS = [
+    "Lap length: measured painted midline 6,987-6,988 m (plan) vs published 7,004 m, 7,001.2 m (race distance / laps) and 7,000.05 m (TUM closed polygon). The TUM polygon is longer because its OSM-derived vertices wander; smoothing the TUM prior gives 6,989.7 m, in agreement with the measurement.",
+    "Altitude marker at 1,490 m: the operator PDF says 446 m (checked visually); the 2022 DTM gives about 431 m there, on an otherwise uniform 4.5 % Kemmel climb. Every other marker agrees within a few metres.",
+    "Relief: DTM gives about 102 m (between the operator/Williams 97 m and formula1.com 102.2 m).",
+    "Raidillon peak gradient: DTM gives about 15.4 % over a 10 m window (published values range 11-18 %).",
+    "DTM flight date (28 Feb-3 Mar 2022) falls inside the 2021-22 works; the orthophoto is summer 2023. Run-off shapes come from the 2023 image; heights may show mid-works ground at Raidillon and the run-off areas.",
+    "Kerb colours from the 2023 orthophoto differ from the Assetto Corsa reference video, which shows its own palette; the photo wins.",
+]

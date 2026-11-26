@@ -47,6 +47,18 @@ public class TyreModelTests
 public class PowerUnitTests
 {
     [Fact]
+    public void Ferrari053ReachesPeakPowerWithoutElectricAssist()
+    {
+        var pu = PowerUnit.Ferrari053(12);
+        double rpm = pu.UpshiftRpm;
+        Assert.InRange(pu.IceTorque(rpm, 1) * rpm * Math.Tau / 60 / 1000, 633, 639);
+        Assert.True(pu.IceTorque(pu.RevLimit, 1) < 0);
+        Assert.Equal(0, pu.UpdateErs(0.1, 1, 0, 80, rpm, true));
+        Assert.Equal(0, pu.UpdateErs(0.1, 0, 1, 80, rpm, false));
+        Assert.Equal(0, pu.StoreFraction);
+    }
+
+    [Fact]
     public void PeakPowerIsAroundFiveHundredSixtyKilowatts()
     {
         var pu = new PowerUnit(100);

@@ -1,0 +1,107 @@
+[
+ {
+  "id": "V1",
+  "measured": "engine-space centreline 6987.14 m plan (6994.62 m along the road surface); deviation from 7004 / 7001.2 / 7000.05 m = -16.86 / -14.06 / -12.91 m",
+  "tolerance": "within 7 m of 7004 m",
+  "evidence": "python tools/SpaSurvey/checks.py -> plan length of track.json centreline (2329 samples) in Godot (X,Z); 1 m stations.csv length 6987.38 m",
+  "pass": false
+ },
+ {
+  "id": "V2",
+  "measured": "19 corners, directions RLRLRLRRLLLRLRRLLRL; apex minus registry lap metres [(1, -8.0), (2, -6.0), (3, -17.9), (4, -5.9), (5, -4.9), (6, -30.9), (7, -18.9), (8, -9.8), (9, -0.8), (10, 31.2), (11, 45.2), (12, -40.8), (13, 20.2), (14, 10.3), (15, -8.7), (16, -35.7), (17, -16.7), (18, -15.6), (19, -12.6)]; apex minus registry apex lat/lon projected on the build [(1, -2.0), (2, 9.0), (3, -3.0), (4, 10.0), (5, 5.0), (6, -22.0), (7, -10.0), (8, 2.0), (9, 11.0), (10, 41.0), (11, 56.0), (12, -28.0), (13, 34.0), (14, 24.0), (15, 9.0), (16, -21.0), (17, -4.0), (18, -1.0), (19, -1.0)]",
+  "tolerance": "directions RLRLRLRRLLLRLRRLLRL; apex ±15 m (±35 m T10/T11)",
+  "evidence": "python tools/SpaSurvey/checks.py -> apexes are curvature maxima of the orthophoto-edge centreline (not the TUM registry); registry lap metres run ~12.7 m long (TUM line longer); outside tolerance in lap metres: [(3, -17.9), (6, -30.9), (7, -18.9), (11, 45.2), (12, -40.8), (13, 20.2), (16, -35.7), (17, -16.7), (18, -15.6)]; by position: [(6, -22.0), (10, 41.0), (11, 56.0), (12, -28.0), (13, 34.0), (14, 24.0), (16, -21.0)]",
+  "pass": false
+ },
+ {
+  "id": "V3",
+  "measured": "total signed heading -360.00 deg; enclosed area 922,662 m2 (-0.10%); per-corner heading deltas [(1, 1.9), (2, -2.6), (3, -1.8), (4, -0.2), (5, 1.6), (6, 0.6), (7, 1.5), (8, 4.8), (9, -2.1), (10, -9.8), (11, -0.7), (12, 2.5), (13, -0.7), (14, -0.6), (15, -0.1), (16, -2.1), (17, -0.3), (18, 3.8), (19, 4.2)]",
+  "tolerance": "|total| = 360±2 deg; area 923,549 m2 ±3%; corner heading ±10 deg (±20 T1/T8/T15/T18/T19)",
+  "evidence": "python tools/SpaSurvey/checks.py -> corners outside tolerance: none",
+  "pass": true
+ },
+ {
+  "id": "V4",
+  "measured": "signed area in Godot (X,Z) +922,662 (E,N -922,662); La Source/Eau Rouge/Blanchimont orientation registry(E,N) -1 vs engine(X,Z) +1; apex distances to registry lat/lon {1: 12.0, 2: 8.7, 16: 20.2} m",
+  "tolerance": "positive in Godot (negative in E,N); marker orientation flips with the N->-Z mapping (no mirror)",
+  "evidence": "python tools/SpaSurvey/checks.py -> mapping (X,Y,Z) = (E,U,-N)",
+  "pass": true
+ },
+ {
+  "id": "V5",
+  "measured": "global offset +2.53 m; residuals max 14.06 m, RMS 3.80 m; worst [(1490, -14.06), (310, 4.02), (6000, -3.58), (3600, 3.57)]",
+  "tolerance": "every marker within 3 m after one offset",
+  "evidence": "python tools/SpaSurvey/checks.py -> stations.csv u_m (2022 DTM, DNG) vs operator PDF markers (re-read visually: identical to the brief)",
+  "pass": false
+ },
+ {
+  "id": "V6",
+  "measured": "relief 102.17 m; max 468.78 m at lap 2476; min 366.60 m at lap 4994",
+  "tolerance": "95-106 m; max in 2378-2568; min in 4812-5491",
+  "evidence": "python tools/SpaSurvey/checks.py -> stations.csv u_m",
+  "pass": true
+ },
+ {
+  "id": "V7",
+  "measured": "Raidillon peak 15.41% at lap 1023 (10 m window); stretches (measured, brief) [('La Source exit to Eau Rouge bottom', np.float64(-5.26), -4.8), ('Eau Rouge bottom to Raidillon crest', np.float64(9.39), 10.0), ('Early Kemmel', np.float64(4.69), 8.6), ('Kemmel overall', np.float64(4.6), 4.1), ('T7 entry to T10 entry', np.float64(-5.82), -6.0), ('Fagnes-Campus valley floor', np.float64(-0.61), -0.5), ('Paul Frère to the line', np.float64(2.58), 2.4)]",
+  "tolerance": "peak 11-18%; stretch averages within 1.5 pp (2 pp Eau Rouge to crest)",
+  "evidence": "python tools/SpaSurvey/checks.py -> centred differences on stations.csv u_m",
+  "pass": false
+ },
+ {
+  "id": "V8",
+  "measured": "vs OpenStreetMap raceway ways after rigid fit (rotation +0.001 deg, shift 0.43 m): mean 0.47 m, 95th pct 0.99 m, Hausdorff 7.26 m",
+  "tolerance": "GPS/imagery-derived reference: mean <= 1 m, Hausdorff <= 3-5 m (no independent LiDAR/orthophoto edge set exists; the build's own edges are not reused)",
+  "evidence": "python tools/SpaSurvey/checks.py -> 7206 OSM points (pit, kart and moto ways excluded; OSM->ours direction limited to points within 40 m)",
+  "pass": false
+ },
+ {
+  "id": "V9",
+  "measured": "total width min/median/max 8.73/10.02/18.50 m; 6039 of 6987 stations under 12 m (flag); independent local re-detection agrees within 0.5 m at 95.0% of 560 probes",
+  "tolerance": "within 0.5 m of the orthophoto measurement at each station; <12 m flagged, not failed",
+  "evidence": "python tools/SpaSurvey/checks.py -> widths are distances to the traced painted lines; re-detection uses the brightest white-line peak within ±1.5 m, no smoothing prior",
+  "pass": true
+ },
+ {
+  "id": "V10",
+  "measured": "max curvature change between 1 m stations 0.01586 1/m^2; smoothed minimum radius T1/T18/T19 {1: 10.2, 18: 13.6, 19: 15.4} m",
+  "tolerance": "continuous curvature (cubic smoothing spline); Rmin about 15-25 m at T1, T18, T19",
+  "evidence": "python tools/SpaSurvey/checks.py -> curvature from the spline's analytic derivatives",
+  "pass": false
+ },
+ {
+  "id": "V11",
+  "measured": "terrain 30,962 triangles, 0 degenerate; road-centre stations where terrain is within 5 cm of the road: 0; in-game per view: draw calls 66-239 (including instanced forest patches and text labels), primitives 42k-171k; spa_neutral.glb 3521 KB",
+  "tolerance": "budgets: desktop 150-300k triangles, <30 merged draw calls plus instances; no degenerate triangles; no road/terrain clipping",
+  "evidence": "python tools/SpaSurvey/checks.py -> terrain.json triangulation sampled at every centreline sample; draw calls from --autotest=trackbench",
+  "pass": false
+ },
+ {
+  "id": "V12",
+  "measured": "AI hot lap 1:53.125 vs record 1:44.701 (+8.0%) and 2025 pole 1:40.562 (+12.5%)",
+  "tolerance": "within ±10% of 1:44.701",
+  "evidence": "python tools/SpaSurvey/checks.py -> C:/Formula_1/builds/spa-polish/lap-normal.log",
+  "pass": true
+ },
+ {
+  "id": "V13",
+  "measured": "pole box front line 23.5 m before the control line, 275.5 m before the T1 apex; separate start line at lap -21.0 m; 8 zones stored as envelopes",
+  "tolerance": "pole slot about 271±15 m before T1 apex (soft); zones inside envelopes",
+  "evidence": "python tools/SpaSurvey/checks.py -> grid and start line detected in D3; zones from corners.json",
+  "pass": true
+ },
+ {
+  "id": "V14",
+  "measured": "6987 station rows, 0 without provenance; corners/zones/sectors tagged: True; 32 features in the uncertainty register, 7 UNKNOWN, 5 ASSUMED",
+  "tolerance": "every emitted feature tagged; UNKNOWN count printed",
+  "evidence": "python tools/SpaSurvey/checks.py -> stations.csv, corners/zones/sectors.json, uncertainty.py",
+  "pass": true
+ },
+ {
+  "id": "V15",
+  "measured": "user map vs build after similarity fit: mean 0.50 m, max 4.10 m, scale 0.9988, rotation -96.5 deg (map frame -> north-up E,N)",
+  "tolerance": "mean <= 3 m, max <= 15 m (expect scale ~1.0, rotation ~ -97.5 deg)",
+  "evidence": "python tools/SpaSurvey/checks.py -> spa_map_centerline_10m.csv (user map, reference only)",
+  "pass": true
+ }
+]

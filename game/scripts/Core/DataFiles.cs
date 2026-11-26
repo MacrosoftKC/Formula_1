@@ -11,6 +11,9 @@ public static class DataFiles
     public const string ClassicsPath = "res://data/classic_cars.json";
     public const string RegulationsPath = "res://data/regulations_2025.json";
     public const string AlbertParkPath = "res://data/tracks/albert_park/track.json";
+    public const string SpaId = "spa";
+    public const string AlbertParkId = "albert_park";
+    public static readonly string[] CircuitIds = { SpaId, AlbertParkId };
 
     public static T Load<T>(string path)
     {

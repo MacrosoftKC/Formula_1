@@ -61,7 +61,9 @@ public sealed class Studio
 
     public void LightForTeam(string teamId)
     {
-        bool detailed = teamId is "red_bull" or F1.Core.Data.TeamData.W11;
+        bool detailed = teamId is "red_bull" or F1.Core.Data.TeamData.W11 or F1.Core.Data.TeamData.F2004;
+        // Keep the white planes and polished rims legible next to the saturated Ferrari paint.
+        _environment.TonemapExposure = teamId == F1.Core.Data.TeamData.F2004 ? 0.88f : 1.0f;
         _environment.BackgroundColor = detailed ? Color.FromHtml("#D7D9E5") : Backdrop;
         _environment.AmbientLightEnergy = detailed ? 0.46f : 0.42f;
         _environment.SsaoEnabled = detailed;

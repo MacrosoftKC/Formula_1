@@ -34,17 +34,42 @@ public partial class TrackPreview : Node3D
         _shots.Add(("01_grid_cockpit", Track(ts.Length - 40, -3.2, 1.05f, -2)));
         _shots.Add(("02_t1_approach", Track(corners[0].EntryS - 120, 0, 1.05f, -2)));
         _shots.Add(("03_t3_from_above", Track(corners[2].EntryS - 90, 0, 14, -14)));
-        _shots.Add(("04_lakeside", Track(2800, 0, 1.05f, -2)));
-        _shots.Add(("05_pitlane", Track(ts.Length - 120, -14, 4, -10, 20)));
+        bool spa = ts.Data.Id == DataFiles.SpaId;
+        _shots.Add(spa ? ("04_pouhon", Track(corners[9].EntryS - 75, 0, 2, -1)) : ("04_lakeside", Track(2800, 0, 1.05f, -2)));
+        var pitCamera = Track(ts.Length - 120, -14, 4, -10, 20);
+        if (spa)
+        {
+            double u = ts.Data.PitLane.Boxes[1];
+            pitCamera = new Transform3D(Basis.Identity, ts.PitPoint(u, 1.5, 1.6f));
+            pitCamera = pitCamera.LookingAt(ts.PitPoint(u + 40, 0, 1.2f), Vector3.Up);
+        }
+        _shots.Add(("05_pitlane", pitCamera));
         _shots.Add(("06_gantry", Track(ts.Length - 60, 2, 2.5f, 4)));
-        _shots.Add(("07_north_tip_skyline", Track(corners[5].ExitS + 30, 0, 1.2f, 2, 30)));
+        _shots.Add(spa ? ("07_raidillon", Track(corners[1].EntryS - 80, 0, 1.3f)) :
+            ("07_north_tip_skyline", Track(corners[5].ExitS + 30, 0, 1.2f, 2, 30)));
         _shots.Add(("08_t13_t14", Track(corners[12].EntryS - 80, 0, 12, -12)));
+        if (spa)
+        {
+            _shots.Add(("10_raidillon_onboard", Track(corners[2].ApexS - 20, 0, 1.05f, -1)));
+            _shots.Add(("11_bus_stop_kerbs", Track(corners[17].EntryS - 40, -1.5, 3.5f, -9)));
+        }
         var over = new Transform3D(Basis.Identity, new Vector3(220, 2300, 900));
         over = over.LookingAt(new Vector3(220, 0, -380), Vector3.Forward);
+        if (spa)
+        {
+            var (lo, hi) = Builders.NatureBuilder.Bounds(ts, 0);
+            var middle = (lo + hi) * .5f;
+            var aim = new Vector3(middle.X, 0, -middle.Y);
+            over = new Transform3D(Basis.Identity, aim + new Vector3(0, 1950, 250)).LookingAt(aim, Vector3.Forward);
+        }
         _shots.Add(("09_overview", over));
 
         _out = App.Instance.Arg("out");
-        if (App.Instance.Arg("autotest") == "trackshots") { _shot = 0; _wait = 0; _cam.GlobalTransform = _shots[0].T; }
+        if (App.Instance.Arg("hide") is { } hidden)
+            foreach (var child in _world.GetChildren().OfType<Node3D>())
+                if (hidden.Split(',').Contains(child.Name.ToString())) child.Visible = false;
+        if (App.Instance.Arg("autotest") == "trackbench") StartBench();
+        else if (App.Instance.Arg("autotest") == "trackshots") { _shot = 0; _wait = 0; _cam.GlobalTransform = _shots[0].T; }
         else
         {
             _cam.GlobalTransform = _shots[1].T;
@@ -52,8 +77,58 @@ public partial class TrackPreview : Node3D
         }
     }
 
+    // --autotest=trackbench: holds an onboard camera at evenly spaced points around the lap and reports the CPU and GPU
+    // render time at each, so a slow stretch of scenery can be found. --hide=Name,Name hides top-level world nodes.
+    private int _benchPoint = -1, _benchFrame;
+    private double _benchClock;
+    private readonly List<double> _benchCpu = new(), _benchGpu = new();
+    private static int BenchPoints => int.TryParse(App.Instance.Arg("points"), out int n) ? n : 28;
+    private const int BenchFrames = 10;
+
+    private void StartBench()
+    {
+        RenderingServer.ViewportSetMeasureRenderTime(GetViewport().GetViewportRid(), true);
+        GD.Print("BENCH nodes: " + string.Join(", ", _world.GetChildren().Select(c => c.Name.ToString())));
+        _benchPoint = 0;
+        _benchFrame = 0;
+        PlaceBenchCamera();
+    }
+
+    private void PlaceBenchCamera()
+    {
+        var ts = _world.Surface;
+        _cam.GlobalTransform = ts.TrackTransform(ts.Length * _benchPoint / BenchPoints, 0, 1.1f);
+    }
+
+    private bool StepBench()
+    {
+        if (_benchPoint < 0) return false;
+        var vp = GetViewport().GetViewportRid();
+        if (++_benchFrame > 4)
+        {
+            _benchCpu.Add(RenderingServer.ViewportGetMeasuredRenderTimeCpu(vp) + RenderingServer.GetFrameSetupTimeCpu());
+            _benchGpu.Add(RenderingServer.ViewportGetMeasuredRenderTimeGpu(vp));
+        }
+        if (_benchFrame < BenchFrames) return true;
+        var info = RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalDrawCallsInFrame);
+        var prims = RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TotalPrimitivesInFrame);
+        var ts = _world.Surface;
+        double now = Time.GetTicksMsec();
+        GD.Print($"BENCH s={ts.Length * _benchPoint / BenchPoints:0} cpu={_benchCpu.Average():0.0}ms gpu={_benchGpu.Average():0.0}ms " +
+                 $"draws={info} prims={prims / 1000}k frame={(now - _benchClock) / BenchFrames:0}ms " +
+                 $"process={Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000:0.0}ms physics={Performance.GetMonitor(Performance.Monitor.TimePhysicsProcess) * 1000:0.0}ms");
+        _benchClock = now;
+        _benchCpu.Clear();
+        _benchGpu.Clear();
+        _benchFrame = 0;
+        if (++_benchPoint >= BenchPoints) { App.Instance.Quit(0); return true; }
+        PlaceBenchCamera();
+        return true;
+    }
+
     public override void _Process(double delta)
     {
+        if (StepBench()) return;
         if (_shot >= 0)
         {
             // give the renderer a few frames (shadows, MultiMesh uploads) before grabbing

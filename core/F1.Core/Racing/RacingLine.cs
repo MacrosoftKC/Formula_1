@@ -104,18 +104,35 @@ public sealed class RacingLine
         double lineLength = 0;
         for (int i = 0; i < n; i++) { ds[i] = Vec2.Distance(pts[i], pts[(i + 1) % n]); lineLength += ds[i]; }
 
-        var speed = SpeedProfile(curvature, ds, perf);
+        double[]? grade = null;
+        if (track.Elevation.Count == n)
+        {
+            grade = new double[n];
+            for (int i = 0; i < n; i++)
+            {
+                int prev = (i + n - 3) % n, next = (i + 3) % n;
+                grade[i] = (track.Elevation[next] - track.Elevation[prev]) / center.Forward(center.SAt(next), center.SAt(prev));
+            }
+        }
+        var speed = SpeedProfile(curvature, ds, perf, grade);
         double time = 0;
         for (int i = 0; i < n; i++) time += ds[i] / Math.Max(1, 0.5 * (speed[i] + speed[(i + 1) % n]));
         return new RacingLine(center, d, speed, curvature, pts, time, lineLength);
     }
 
     /// <summary>Forward (traction/power) and backward (braking) passes around a closed loop.</summary>
-    public static double[] SpeedProfile(double[] curvature, double[] ds, PerformanceModel p)
+    public static double[] SpeedProfile(double[] curvature, double[] ds, PerformanceModel p, double[]? grade = null)
     {
         int n = curvature.Length;
         var vmax = new double[n];
-        for (int i = 0; i < n; i++) vmax[i] = p.CornerSpeed(curvature[i]);
+        for (int i = 0; i < n; i++)
+        {
+            double corner = p.CornerSpeed(curvature[i]);
+            // Reserve tyre grip for trail braking into descending corners. A straight retains its full speed target.
+            double downhill = Math.Max(0, -(grade?[i] ?? 0));
+            double cornerWeight = Math.Clamp(Math.Abs(curvature[i]) * 85, 0, 1);
+            vmax[i] = corner * (1 - Math.Min(.17, 2.2 * downhill) * cornerWeight);
+        }
         var v = (double[])vmax.Clone();
 
         // start the passes at the slowest point so the loop closes consistently
@@ -131,7 +148,7 @@ public sealed class RacingLine
                 double aTraction = Math.Sqrt(Math.Max(0, grip * grip - aLat * aLat)) * 0.85;
                 double aPower = p.PowerW * p.DrivelineEfficiency / (p.MassKg * Math.Max(vi, 5));
                 double aDrag = (p.DragPerV2 * vi * vi) / p.MassKg + p.RollingCoeff * PerformanceModel.G;
-                double a = Math.Min(aTraction, aPower) - aDrag;
+                double a = Math.Min(aTraction, aPower) - aDrag - PerformanceModel.G * (grade?[i] ?? 0);
                 double vj = Math.Sqrt(Math.Max(0, vi * vi + 2 * a * ds[i]));
                 v[j] = Math.Min(v[j], Math.Min(vj, vmax[j]));
             }
@@ -141,8 +158,8 @@ public sealed class RacingLine
                 double vj = v[j];
                 double aLat = vj * vj * Math.Abs(curvature[j]);
                 double grip = Math.Min(p.GripAccel(vj), p.MaxBrakeG * PerformanceModel.G);
-                double aBrake = Math.Sqrt(Math.Max(0, grip * grip - aLat * aLat)) + (p.DragPerV2 * vj * vj) / p.MassKg;
-                double vi = Math.Sqrt(vj * vj + 2 * aBrake * ds[i]);
+                double aBrake = Math.Sqrt(Math.Max(0, grip * grip - aLat * aLat)) + (p.DragPerV2 * vj * vj) / p.MassKg + PerformanceModel.G * (grade?[i] ?? 0);
+                double vi = Math.Sqrt(vj * vj + 2 * Math.Max(0, aBrake) * ds[i]);
                 v[i] = Math.Min(v[i], vi);
             }
         }

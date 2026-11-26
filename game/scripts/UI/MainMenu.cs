@@ -1,6 +1,6 @@
 using F1.Core.Data;
 using F1.Core.Race;
-using F1.Core.Sim;
+using F1.Core.Track;
 using F1.Game.Core;
 using F1.Game.Session;
 using F1.Game.Vehicle;
@@ -8,329 +8,366 @@ using Godot;
 
 namespace F1.Game.UI;
 
-/// <summary>
-/// Main menu: pick a car (team and driver), tyres and ghost for a Time Trial at Albert Park, with the chosen car on a
-/// turntable in the car-select studio. Keys: Up/Down change team, Left/Right change driver, 1-3 tyres, G ghost,
-/// Enter start, Esc quit. With --autotest=menushot --out=DIR it saves a screenshot and quits.
-/// </summary>
+/// <summary>Time trial, circuit selection and garage share the live session configuration.</summary>
 public partial class MainMenu : Node3D
 {
-    private const string TrackId = "albert_park";
+    private enum Page { TimeTrial, Circuits, Garage }
     private static readonly string[] Compounds = { "soft", "medium", "hard" };
-
-    private List<TeamData> _teams = null!;
-    private int _team, _seat, _compound;
-    private bool _classic;
-    private readonly Button[] _categoryButtons = new Button[2];
+    private static readonly Color White = Color.FromHtml("#f9f6f7"), Muted = Color.FromHtml("#c7b9c5"),
+        Panel = Color.FromHtml("#28212f"), Edge = Color.FromHtml("#514150"), Red = Color.FromHtml("#e9394c"),
+        Deep = Color.FromHtml("#15121c");
+    private readonly SystemFont _display = new() { FontNames = new[] { "Barlow Condensed", "Bahnschrift", "Arial" }, FontWeight = 740 };
+    private readonly SystemFont _body = new() { FontNames = new[] { "Barlow", "Bahnschrift", "Segoe UI" }, FontWeight = 470 };
     private readonly int[] _lastTeam = new int[2];
-    private Panel _carList = null!, _options = null!;
-    private bool _ghost = true;
-    private CarModel? _car;
-    private DriverData? _displayedDriver;
-    private Node3D _turntable = null!;
+    private Dictionary<string, TrackRecord> _records = null!;
+    private SessionConfig Config => App.Instance.Session;
+    private List<TeamData> Teams => _classic ? App.Instance.ClassicCars : App.Instance.Teams.Teams;
+    private TeamData Team => Teams[_team];
+    private TrackData Circuit => App.Instance.Track;
+    private bool Spa => Config.TrackId == DataFiles.SpaId;
+    private Page _page;
+    private bool _classic;
+    private int _team, _shotFrames = -1;
+    private Control _frame = null!, _ui = null!;
+    private SubViewport _stage = null!;
+    private Node3D _studioRoot = null!;
     private Studio _studio = null!;
-    private Dictionary<string, TrackRecord> _records = new();
-
-    private readonly List<Button> _teamButtons = new();
-    private readonly Button[] _driverButtons = new Button[2];
-    private readonly List<Button> _tyreButtons = new();
-    private CheckButton _ghostToggle = null!;
-    private Label _teamName = null!, _teamInfo = null!, _best = null!;
-    private readonly ColorRect[] _statBars = new ColorRect[4];
-    private int _shotFrames = -1;
-    /// <summary>Turntable angle that points the nose to the lower right, away from the menu.</summary>
-    private const float ShowAngle = 2.75f;
+    private Camera3D _camera = null!;
+    private CarModel? _car;
+    private DriverData? _shown;
+    private Button? _initialFocus;
+    private bool _starting;
 
     public override void _Ready()
     {
-        _studio = new Studio(this);
-        _turntable = new Node3D { Name = "Turntable", Rotation = new Vector3(0, ShowAngle, 0) };
-        AddChild(_turntable);
-        var cam = new Camera3D { Name = "Camera", Fov = 30, Near = 0.05f, Far = 500, Current = true };
-        AddChild(cam);
-        cam.GlobalPosition = new Vector3(-6.61f, 4.53f, -10.53f);
-        cam.LookAt(new Vector3(1.23f, -0.25f, -1.0f), Vector3.Up); // car sits right of centre, clear of the menu
-
-        var cfg = App.Instance.Session;
-        string id = App.Instance.Arg("team") ?? cfg.TeamId;
-        _classic = App.Instance.ClassicCars.Any(t => t.Id == id);
-        _teams = _classic ? App.Instance.ClassicCars : App.Instance.Teams.Teams;
-        _team = Math.Max(0, _teams.FindIndex(t => t.Id == id));
-        _seat = Math.Clamp(cfg.Seat, 0, 1);
-        _compound = Math.Max(0, Array.IndexOf(Compounds, cfg.Compound));
-        _ghost = cfg.ShowGhost;
         _records = Records.Load();
-
-        BuildUi();
-        PopulateCars();
-        Select(_team);
+        string id = App.Instance.Arg("team") ?? Config.TeamId;
+        _classic = App.Instance.ClassicCars.Any(t => t.Id == id);
+        _team = Math.Max(0, Teams.FindIndex(t => t.Id == id));
+        Config.TeamId = Team.Id;
+        Config.Seat = Math.Clamp(Config.Seat, 0, Team.Drivers.Count - 1);
+        var layer = new CanvasLayer();
+        AddChild(layer);
+        var canvas = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+        layer.AddChild(canvas);
+        canvas.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        var back = new ColorRect { Color = Deep };
+        canvas.AddChild(back);
+        back.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _frame = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+        canvas.AddChild(_frame);
+        _frame.SetAnchorsPreset(Control.LayoutPreset.Center);
+        _frame.OffsetLeft = -960; _frame.OffsetRight = 960; _frame.OffsetTop = -540; _frame.OffsetBottom = 540;
+        _frame.AddChild(new MenuBackdrop { Size = new Vector2(1920, 1080), MouseFilter = Control.MouseFilterEnum.Ignore });
+        BuildStage();
+        _page = App.Instance.Arg("page") switch { "garage" => Page.Garage, "circuits" => Page.Circuits, _ => Page.TimeTrial };
+        Refresh();
         if (App.Instance.Arg("autotest") == "menushot") _shotFrames = 0;
     }
 
-    // ---- UI --------------------------------------------------------------------------------------------------------
-
-    private static readonly Color Ink = new(0.07f, 0.08f, 0.12f);
-    private static readonly Color Muted = new(0.38f, 0.4f, 0.46f);
-    private static readonly Color Card = new(1f, 1f, 1f, 0.82f);
-    private static readonly Color Accent = new(0.88f, 0.02f, 0.0f);
-
-    private static StyleBoxFlat Box(Color bg, Color? border = null, int borderW = 0, int radius = 6) => new()
+    private void BuildStage()
     {
-        BgColor = bg, BorderColor = border ?? bg, BorderWidthLeft = borderW, BorderWidthRight = borderW, BorderWidthTop = borderW,
-        BorderWidthBottom = borderW, CornerRadiusTopLeft = radius, CornerRadiusTopRight = radius, CornerRadiusBottomLeft = radius,
-        CornerRadiusBottomRight = radius, ContentMarginLeft = 14, ContentMarginRight = 14,
+        // Render the existing car model only when the selection changes. The menu then composites a single texture.
+        _stage = new SubViewport
+        {
+            Size = new Vector2I(1240, 550),
+            TransparentBg = true,
+            OwnWorld3D = true,
+            Msaa3D = Viewport.Msaa.Msaa2X,
+            RenderTargetUpdateMode = SubViewport.UpdateMode.Once
+        };
+        AddChild(_stage);
+        _studioRoot = new Node3D();
+        _stage.AddChild(_studioRoot);
+        _studio = new Studio(_studioRoot);
+        _studio.Floor.Visible = false;
+        _camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = 3.13f, Current = true };
+        _studioRoot.AddChild(_camera);
+        _camera.Position = new Vector3(-8.4f, 2.4f, -4.0f);
+        _camera.LookAt(new Vector3(0, .6f, 0), Vector3.Up);
+        _frame.AddChild(new TextureRect
+        {
+            Position = new Vector2(675, 192),
+            Size = new Vector2(1210, 537),
+            Texture = _stage.GetTexture(),
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        });
+    }
+
+    private void UpdateCar()
+    {
+        var driver = Team.Drivers[Config.Seat];
+        if (_shown == driver) return;
+        _shown = driver;
+        if (_car != null) { _studioRoot.RemoveChild(_car); _car.QueueFree(); }
+        _studio.LightForTeam(Team.Id);
+        _car = new CarModel();
+        _studioRoot.AddChild(_car);
+        _car.Build(Team, driver);
+        _car.SetShowroomView(false);
+        _stage.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;
+    }
+
+    private static StyleBoxFlat Box(Color color, Color border, int width = 1) => new()
+    {
+        BgColor = color,
+        BorderColor = border,
+        BorderWidthLeft = width,
+        BorderWidthRight = width,
+        BorderWidthTop = width,
+        BorderWidthBottom = width,
+        CornerRadiusTopLeft = 5,
+        CornerRadiusTopRight = 5,
+        CornerRadiusBottomLeft = 5,
+        CornerRadiusBottomRight = 5,
+        ContentMarginLeft = 14,
+        ContentMarginRight = 14
     };
 
-    private static Label Text(Control parent, string text, int size, Color color, Vector2 pos, Vector2 sizePx, HorizontalAlignment align = HorizontalAlignment.Left)
+    private void Rect(Control parent, int x, int y, int w, int h, Color color)
     {
-        var l = new Label { Text = text, Position = pos, Size = sizePx, HorizontalAlignment = align, VerticalAlignment = VerticalAlignment.Center };
-        l.AddThemeFontSizeOverride("font_size", size);
-        l.AddThemeColorOverride("font_color", color);
-        parent.AddChild(l);
-        return l;
+        parent.AddChild(new ColorRect { Position = new Vector2(x, y), Size = new Vector2(w, h), Color = color, MouseFilter = Control.MouseFilterEnum.Ignore });
     }
 
-    private static Button MakeButton(Control parent, string text, Vector2 pos, Vector2 size, int fontSize = 22)
+    private Label Text(Control parent, string value, int x, int y, int w, int h, int size, Color color, bool bold = false, bool right = false)
     {
-        var b = new Button { Text = text, Position = pos, Size = size, FocusMode = Control.FocusModeEnum.None, Alignment = HorizontalAlignment.Left };
-        b.AddThemeFontSizeOverride("font_size", fontSize);
-        parent.AddChild(b);
-        return b;
+        var label = new Label
+        {
+            Text = value,
+            Position = new Vector2(x, y),
+            Size = new Vector2(w, h),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = right ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        label.AddThemeFontOverride("font", bold ? _display : _body);
+        label.AddThemeFontSizeOverride("font_size", size);
+        label.AddThemeColorOverride("font_color", color);
+        parent.AddChild(label);
+        return label;
     }
 
-    private static void Style(Button b, Color bg, Color fg, Color? border = null, int borderW = 0)
+    private Button Tile(Control parent, string caption, int x, int y, int w, int h, Action action, bool selected = false, bool primary = false, int size = 22)
     {
-        foreach (var state in new[] { "normal", "hover", "pressed", "focus" })
-            b.AddThemeStyleboxOverride(state, Box(state == "hover" ? bg.Lightened(0.06f) : bg, border, borderW));
-        foreach (var state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" })
-            b.AddThemeColorOverride(state, fg);
-    }
-
-    private void BuildUi()
-    {
-        var layer = new CanvasLayer { Name = "Menu" };
-        AddChild(layer);
-        var root = new Control();
-        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        root.MouseFilter = Control.MouseFilterEnum.Ignore;
-        layer.AddChild(root);
-
-        // title
-        Text(root, "LOW-POLY F1", 22, Accent, new Vector2(64, 40), new Vector2(600, 30));
-        Text(root, "TIME TRIAL", 64, Ink, new Vector2(60, 66), new Vector2(800, 76));
-        var teamsFile = App.Instance.Teams;
-        Text(root, $"{App.Instance.Track.Name.ToUpperInvariant()}  ·  MELBOURNE  ·  {teamsFile.Event.ToUpperInvariant()}", 20, Muted, new Vector2(64, 140), new Vector2(1100, 30));
-
-        // team list
-        _carList = new Panel { Position = new Vector2(60, 196) };
-        _carList.AddThemeStyleboxOverride("panel", Box(Card, radius: 10));
-        root.AddChild(_carList);
-        string[] categories = { "2024 Cars", "Classic Cars" };
-        for (int i = 0; i < categories.Length; i++)
-        {
-            bool classic = i == 1;
-            var tab = MakeButton(_carList, categories[i], new Vector2(14 + i * 258, 12), new Vector2(252, 44), 20);
-            tab.Alignment = HorizontalAlignment.Center;
-            tab.TooltipText = "Switch car category (Tab)";
-            tab.Pressed += () => ChangeCategory(classic);
-            _categoryButtons[i] = tab;
-        }
-
-        // driver, tyres, ghost
-        var opts = _options = new Panel { Position = new Vector2(60, 892), Size = new Vector2(540, 150) };
-        opts.AddThemeStyleboxOverride("panel", Box(Card, radius: 10));
-        root.AddChild(opts);
-        for (int s = 0; s < 2; s++)
-        {
-            int seat = s;
-            _driverButtons[s] = MakeButton(opts, "", new Vector2(14 + s * 260, 14), new Vector2(252, 52), 20);
-            _driverButtons[s].Pressed += () => { _seat = seat; Refresh(); };
-        }
-        for (int c = 0; c < Compounds.Length; c++)
-        {
-            int ci = c;
-            var b = MakeButton(opts, TyreCompound.ById(Compounds[c]).Name.ToUpperInvariant(), new Vector2(14 + c * 128, 82), new Vector2(120, 52), 18);
-            b.Alignment = HorizontalAlignment.Center;
-            b.Pressed += () => { _compound = ci; Refresh(); };
-            _tyreButtons.Add(b);
-        }
-        _ghostToggle = new CheckButton { Text = "GHOST", Position = new Vector2(402, 82), Size = new Vector2(124, 52), FocusMode = Control.FocusModeEnum.None, ButtonPressed = _ghost };
-        _ghostToggle.AddThemeFontSizeOverride("font_size", 18);
-        _ghostToggle.AddThemeColorOverride("font_color", Ink);
-        _ghostToggle.AddThemeColorOverride("font_pressed_color", Ink);
-        _ghostToggle.AddThemeColorOverride("font_hover_color", Ink);
-        _ghostToggle.Toggled += on => { _ghost = on; };
-        opts.AddChild(_ghostToggle);
-
-        // selected car card, start and quit
-        var info = new Panel { Position = new Vector2(1320, 650), Size = new Vector2(540, 270) };
-        info.AddThemeStyleboxOverride("panel", Box(Card, radius: 10));
-        root.AddChild(info);
-        _teamName = Text(info, "", 36, Ink, new Vector2(24, 12), new Vector2(500, 46));
-        _teamInfo = Text(info, "", 18, Muted, new Vector2(24, 56), new Vector2(500, 28));
-        string[] stats = { "POWER", "DOWNFORCE", "TOP SPEED", "TYRE LIFE" };
-        for (int i = 0; i < stats.Length; i++)
-        {
-            Text(info, stats[i], 15, Muted, new Vector2(24, 96 + i * 30), new Vector2(150, 24));
-            info.AddChild(new ColorRect { Color = new Color(0, 0, 0, 0.08f), Position = new Vector2(176, 104 + i * 30), Size = new Vector2(330, 10) });
-            _statBars[i] = new ColorRect { Position = new Vector2(176, 104 + i * 30), Size = new Vector2(0, 10) };
-            info.AddChild(_statBars[i]);
-        }
-        _best = Text(info, "", 18, Ink, new Vector2(24, 222), new Vector2(500, 32));
-
-        var start = MakeButton(root, "START TIME TRIAL", new Vector2(1320, 936), new Vector2(540, 84), 32);
-        start.Alignment = HorizontalAlignment.Center;
-        Style(start, Accent, Colors.White);
-        start.Pressed += StartSession;
-        var quit = MakeButton(root, "QUIT", new Vector2(1740, 40), new Vector2(120, 46), 18);
-        quit.Alignment = HorizontalAlignment.Center;
-        Style(quit, new Color(1, 1, 1, 0.7f), Ink);
-        quit.Pressed += () => App.Instance.Quit();
-    }
-
-    // ---- selection -------------------------------------------------------------------------------------------------
-
-    private void ChangeCategory(bool classic)
-    {
-        if (_classic == classic) return;
-        _lastTeam[_classic ? 1 : 0] = _team;
-        _classic = classic;
-        _teams = classic ? App.Instance.ClassicCars : App.Instance.Teams.Teams;
-        _seat = 0;
-        PopulateCars();
-        Select(_lastTeam[classic ? 1 : 0]);
-    }
-
-    private void PopulateCars()
-    {
-        foreach (var button in _teamButtons)
-        {
-            _carList.RemoveChild(button);
-            button.QueueFree();
-        }
-        _teamButtons.Clear();
-        for (int i = 0; i < _categoryButtons.Length; i++)
-        {
-            bool active = (i == 1) == _classic;
-            Style(_categoryButtons[i], active ? Ink : Colors.Transparent, active ? Colors.White : Ink);
-        }
-        _carList.Size = new Vector2(540, 78 + 59 * _teams.Count);
-        _options.Position = _carList.Position + new Vector2(0, _carList.Size.Y + 16);
-        for (int i = 0; i < _teams.Count; i++)
-        {
-            int index = i;
-            var t = _teams[i];
-            var b = MakeButton(_carList, "", new Vector2(14, 68 + i * 59), new Vector2(512, 54));
-            var chip = new ColorRect { Color = Units.Hex(t.Primary), Position = new Vector2(12, 10), Size = new Vector2(14, 36), MouseFilter = Control.MouseFilterEnum.Ignore };
-            var chip2 = new ColorRect { Color = Units.Hex(t.Livery.Sidepod ?? t.Secondary), Position = new Vector2(28, 10), Size = new Vector2(8, 36), MouseFilter = Control.MouseFilterEnum.Ignore };
-            b.AddChild(chip); b.AddChild(chip2);
-            var name = Text(b, t.Name, 24, Ink, new Vector2(52, 4), new Vector2(330, 48));
-            name.MouseFilter = Control.MouseFilterEnum.Ignore;
-            var pu = Text(b, t.ModelYear?.ToString() ?? t.PowerUnit.ToUpperInvariant(), 14, Muted, new Vector2(330, 4), new Vector2(170, 48), HorizontalAlignment.Right);
-            pu.MouseFilter = Control.MouseFilterEnum.Ignore;
-            b.Pressed += () => Select(index);
-            _teamButtons.Add(b);
-        }
-    }
-
-    private void Select(int index)
-    {
-        _team = (index + _teams.Count) % _teams.Count;
-        _studio.LightForTeam(_teams[_team].Id);
-        _seat = Math.Clamp(_seat, 0, _teams[_team].Drivers.Count - 1);
-        Refresh();
+        var button = new Button { Text = caption, Position = new Vector2(x, y), Size = new Vector2(w, h), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        var fill = primary ? Red : selected ? Color.FromHtml("#483448") : Panel;
+        button.AddThemeStyleboxOverride("normal", Box(fill, selected ? White : primary ? Red : Edge, selected ? 2 : 1));
+        button.AddThemeStyleboxOverride("hover", Box(fill.Lightened(.12f), White, 2));
+        button.AddThemeStyleboxOverride("pressed", Box(fill.Lightened(.17f), White, 2));
+        var focus = Box(Colors.Transparent, White, 3);
+        focus.DrawCenter = false;
+        button.AddThemeStyleboxOverride("focus", focus);
+        button.AddThemeFontOverride("font", _display);
+        button.AddThemeFontSizeOverride("font_size", size);
+        button.AddThemeColorOverride("font_color", White);
+        button.Pressed += action;
+        parent.AddChild(button);
+        return button;
     }
 
     private void Refresh()
     {
-        var team = _teams[_team];
-        var driver = team.Drivers[_seat];
-        for (int i = 0; i < _teamButtons.Count; i++)
-            Style(_teamButtons[i], i == _team ? Colors.White : new Color(1, 1, 1, 0), Ink, i == _team ? Accent : null, i == _team ? 3 : 0);
-        for (int s = 0; s < 2; s++)
+        UpdateCar();
+        bool regainFocus = _ui != null && GetViewport().GuiGetFocusOwner() != null;
+        if (_ui != null) { _frame.RemoveChild(_ui); _ui.QueueFree(); }
+        _ui = new Control { Size = new Vector2(1920, 1080), MouseFilter = Control.MouseFilterEnum.Ignore };
+        _frame.AddChild(_ui);
+        for (int i = 0; i < 3; i++)
         {
-            var d = s < team.Drivers.Count ? team.Drivers[s] : null;
-            _driverButtons[s].Visible = d != null;
-            if (d == null) continue;
-            _driverButtons[s].Text = $"#{d.Number}  {d.LastName.ToUpperInvariant()}";
-            Style(_driverButtons[s], s == _seat ? Ink : new Color(0, 0, 0, 0.06f), s == _seat ? Colors.White : Ink);
+            float x = 64 + i * 13;
+            var slash = new Polygon2D { Color = i == 2 ? White : Red, Polygon = new[] { new Vector2(x + 15, 48), new Vector2(x + 24, 48), new Vector2(x + 7, 75), new Vector2(x - 2, 75) } };
+            _ui.AddChild(slash);
         }
-        for (int c = 0; c < _tyreButtons.Count; c++)
+        Text(_ui, "LOW-POLY F1", 133, 39, 300, 47, 31, White, true);
+        string[] tabs = { "TIME TRIAL", "CIRCUITS", "GARAGE" };
+        for (int i = 0; i < 3; i++)
         {
-            var col = HudStyle.CompoundColor(Compounds[c]);
-            Style(_tyreButtons[c], c == _compound ? col : new Color(0, 0, 0, 0.06f), c == _compound && col.Luminance < 0.7f ? Colors.White : Ink, col, 3);
+            Page tab = (Page)i;
+            var b = Tile(_ui, tabs[i], 550 + i * 190, 38, 172, 48, () => Show(tab), _page == tab);
+            if (_page == tab) Rect(_ui, 562 + i * 190, 91, 148, 4, Red);
         }
-
-        _teamName.Text = team.Name;
-        _teamInfo.Text = $"#{driver.Number} {driver.FullName}  ·  {team.PowerUnit}";
-        var p = team.Car;
-        float[] values =
+        Tile(_ui, "QUIT", 1755, 39, 100, 45, () => App.Instance.Quit(), size: 18);
+        Rect(_ui, 64, 108, 1792, 2, Edge);
+        Hero();
+        Rect(_ui, 0, 677, 1920, 403, Deep);
+        Rect(_ui, 64, 677, 1792, 2, Edge);
+        switch (_page)
         {
-            Stat(p.Power, 0.985, 1.01), Stat(p.Downforce, 0.95, 1.005), Stat(2 - p.Drag, 0.995, 1.03), Stat(2 - p.TyreWear, 0.96, 1.09),
-        };
-        var bar = Units.Hex(team.Primary).Luminance > 0.85f ? Units.Hex(team.Secondary) : Units.Hex(team.Primary);
-        for (int i = 0; i < 4; i++) { _statBars[i].Size = new Vector2(330 * values[i], 10); _statBars[i].Color = bar; }
-        _best.Text = _records.TryGetValue(TrackId, out var rec) && rec.BestLap > 0
-            ? $"PERSONAL BEST  {LapTimer.Format(rec.BestLap)}  ({App.Instance.AllCars.FirstOrDefault(t => t.Id == rec.TeamId)?.Name ?? rec.TeamId})"
-            : "PERSONAL BEST  —  no lap yet";
-
-        if (_displayedDriver == driver) return;
-        _displayedDriver = driver;
-        _turntable.Rotation = new Vector3(0, _classic ? -0.20f : ShowAngle, 0);
-        _car?.QueueFree();
-        _car = new CarModel { Name = "Car" };
-        _turntable.AddChild(_car);
-        _car.Build(team, driver);
-        _car.SetShowroomView(false);
+            case Page.TimeTrial: SessionOptions(); break;
+            case Page.Circuits: CircuitCards(); break;
+            case Page.Garage: GarageCards(); break;
+        }
+        Rect(_ui, 64, 954, 1792, 1, Edge);
+        Text(_ui, "PERSONAL BEST", 64, 972, 175, 28, 17, Muted, true);
+        string pb = _records.TryGetValue(Circuit.Id, out var rec) && rec.BestLap > 0 ? LapTimer.Format(rec.BestLap) : "No timed lap";
+        Text(_ui, pb, 64, 999, 300, 35, 25, White, true);
+        Text(_ui, "Q / E   Change page", 425, 986, 290, 40, 19, Muted);
+        Text(_ui, _page == Page.Garage ? "↑ / ↓   Car     Tab   Collection" : _page == Page.Circuits ? "← / →   Select circuit" : "1–3   Tyres     G   Ghost", 780, 986, 480, 40, 19, Muted);
+        var start = Tile(_ui, "START TIME TRIAL     ›", 1412, 971, 444, 74, StartSession, primary: true, size: 29);
+        _initialFocus ??= start;
+        if (regainFocus) _initialFocus.GrabFocus();
     }
 
-    private static float Stat(double v, double lo, double hi) => (float)Math.Clamp(0.15 + 0.85 * (v - lo) / (hi - lo), 0.08, 1);
+    private void Hero()
+    {
+        bool garage = _page == Page.Garage;
+        string location = Spa ? "STAVELOT   /   BELGIUM" : "MELBOURNE   /   AUSTRALIA";
+        Rect(_ui, 65, 170, 51, 4, Red);
+        Text(_ui, garage ? (_classic ? "CLASSIC CARS" : "2024 CONSTRUCTORS") : location, 65, 186, 650, 36, 23, Muted, true);
+        if (garage)
+        {
+            Text(_ui, Team.Name.ToUpperInvariant(), 61, 239, 885, 98, Team.Name.Length > 17 ? 59 : 74, White, true);
+            var driver = Team.Drivers[Config.Seat];
+            Text(_ui, $"#{driver.Number}   {driver.FullName}", 65, 347, 665, 50, 33, White);
+            Text(_ui, Team.PowerUnit, 65, 410, 620, 40, 25, Muted);
+            var performance = Team.Car;
+            Rating("POWER", performance.Power, .985, 1.01, 490);
+            Rating("DOWNFORCE", performance.Downforce, .95, 1.005, 524);
+            Rating("TOP SPEED", 2 - performance.Drag, .995, 1.03, 558);
+            Rating("TYRE LIFE", 2 - performance.TyreWear, .96, 1.09, 592);
+        }
+        else
+        {
+            Text(_ui, Spa ? "SPA-" : "ALBERT", 60, 222, 800, 109, 89, White, true);
+            Text(_ui, Spa ? "FRANCORCHAMPS" : "PARK", 60, 313, 830, 100, 78, White, true);
+            AddMap(_ui, Circuit, 65, 439, 300, 157, true);
+            Rect(_ui, 395, 453, 2, 125, Edge);
+            Text(_ui, "LAP LENGTH", 425, 443, 240, 32, 17, Muted, true);
+            Text(_ui, $"{Circuit.OfficialLength / 1000:0.000} km", 425, 473, 290, 50, 38, White, true);
+            Text(_ui, $"{Circuit.Corners.Count} turns   /   {Circuit.RaceLaps} race laps", 425, 541, 360, 38, 23, Muted);
+        }
+        Text(_ui, $"{Team.Name.ToUpperInvariant()}   /   {Team.Drivers[Config.Seat].Code}", 924, 605, 924, 42, 23, White, true, true);
+    }
 
+    private void Rating(string label, double rating, double min, double max, int y)
+    {
+        Text(_ui, label, 65, y, 165, 25, 17, Muted, true);
+        Rect(_ui, 238, y + 10, 292, 7, Edge);
+        int width = (int)(292 * Math.Clamp(.15 + .85 * (rating - min) / (max - min), .08, 1));
+        Rect(_ui, 238, y + 10, width, 7, Units.Hex(Team.Secondary));
+    }
+
+    private static void AddMap(Control parent, TrackData track, int x, int y, int w, int h, bool sectors)
+    {
+        parent.AddChild(new CircuitDiagram { Circuit = track, Sectors = sectors, Position = new Vector2(x, y), Size = new Vector2(w, h), MouseFilter = Control.MouseFilterEnum.Ignore });
+    }
+
+    private void SessionOptions()
+    {
+        Text(_ui, "SESSION SETUP", 64, 702, 600, 51, 35, White, true);
+        Text(_ui, "DRIVER", 66, 775, 380, 31, 18, Muted, true);
+        for (int i = 0; i < Team.Drivers.Count; i++)
+        {
+            int seat = i; var d = Team.Drivers[i];
+            Tile(_ui, $"#{d.Number}  {d.LastName.ToUpperInvariant()}", 64 + i * 265, 823, 254, 72, () => SelectSeat(seat), Config.Seat == seat, size: 21);
+        }
+        Text(_ui, "TYRE COMPOUND", 676, 775, 440, 31, 18, Muted, true);
+        for (int i = 0; i < Compounds.Length; i++)
+        {
+            string compound = Compounds[i];
+            var b = Tile(_ui, compound.ToUpperInvariant(), 674 + i * 198, 823, 185, 72, () => SetCompound(compound), Config.Compound == compound);
+            Rect(b, 12, 18, 4, 36, HudStyle.CompoundColor(compound));
+        }
+        Text(_ui, "PERSONAL BEST GHOST", 1406, 775, 450, 31, 18, Muted, true);
+        Tile(_ui, Config.ShowGhost ? "GHOST   ON" : "GHOST   OFF", 1404, 823, 452, 72, ToggleGhost, Config.ShowGhost);
+    }
+
+    private void CircuitCards()
+    {
+        Text(_ui, "SELECT CIRCUIT", 64, 702, 570, 50, 35, White, true);
+        for (int i = 0; i < DataFiles.CircuitIds.Length; i++)
+        {
+            string id = DataFiles.CircuitIds[i]; var c = App.Instance.Circuit(id);
+            var b = Tile(_ui, "", 64 + i * 905, 780, 888, 140, () => SelectCircuit(id), Config.TrackId == id);
+            AddMap(b, c, 28, 19, 196, 101, false);
+            Text(b, id == DataFiles.SpaId ? "BELGIUM" : "AUSTRALIA", 251, 20, 600, 32, 18, Muted, true);
+            Text(b, c.Name.ToUpperInvariant(), 250, 53, 608, 56, 38, White, true);
+            if (Config.TrackId == id) _initialFocus = b;
+        }
+    }
+
+    private void GarageCards()
+    {
+        Text(_ui, "SELECT CAR", 64, 694, 610, 54, 35, White, true);
+        Tile(_ui, "2024 CARS", 1378, 698, 220, 45, () => Category(false), !_classic, size: 19);
+        Tile(_ui, "CLASSIC CARS", 1608, 698, 248, 45, () => Category(true), _classic, size: 19);
+        for (int i = 0; i < Teams.Count; i++)
+        {
+            int pick = i;
+            var t = Teams[i];
+            var b = Tile(_ui, "", 64 + (i % 5) * 360, 761 + (i / 5) * 83, 350, 72, () => SelectTeam(pick), i == _team);
+            Rect(b, 15, 16, 7, 39, Units.Hex(t.Secondary));
+            Text(b, t.ShortName.ToUpperInvariant(), 36, 8, 286, 54, 26, White, true);
+            if (i == _team) _initialFocus = b;
+        }
+    }
+
+    private void Show(Page page) { _page = page; _initialFocus = null; Refresh(); }
+    private void SelectCircuit(string id) { Config.TrackId = id; Show(_page); }
+    private void SelectSeat(int seat) { Config.Seat = Math.Clamp(seat, 0, Team.Drivers.Count - 1); Show(_page); }
+    private void SetCompound(string id) { Config.Compound = id; Show(_page); }
+    private void ToggleGhost() { Config.ShowGhost = !Config.ShowGhost; Show(_page); }
+    private void SelectTeam(int index)
+    {
+        _team = (index + Teams.Count) % Teams.Count;
+        Config.TeamId = Team.Id; Config.Seat = Math.Clamp(Config.Seat, 0, Team.Drivers.Count - 1); Show(_page);
+    }
+    private void Category(bool classics)
+    {
+        if (_classic == classics) return;
+        _lastTeam[_classic ? 1 : 0] = _team; _classic = classics; Config.Seat = 0; SelectTeam(_lastTeam[_classic ? 1 : 0]);
+    }
     private void StartSession()
     {
-        var cfg = App.Instance.Session;
-        App.Instance.Session = new SessionConfig
-        {
-            Mode = SessionMode.TimeTrial, TeamId = _teams[_team].Id, Seat = _seat, Compound = Compounds[_compound],
-            ShowGhost = _ghost, Setup = cfg.Setup,
-        };
+        if (_starting) return;
+        _starting = true; Config.Mode = SessionMode.TimeTrial;
         App.Instance.ChangeScene("res://scenes/TimeTrial.tscn");
     }
+    private void NextPage(int step) => Show((Page)(((int)_page + step + 3) % 3));
 
-    // ---- per frame -------------------------------------------------------------------------------------------------
+    public override void _Input(InputEvent e)
+    {
+        if (_ui == null || _starting) return;
+        if (e is InputEventJoypadButton { Pressed: true } joy)
+        {
+            if (joy.ButtonIndex == JoyButton.LeftShoulder) NextPage(-1);
+            else if (joy.ButtonIndex == JoyButton.RightShoulder) NextPage(1);
+            else if (joy.ButtonIndex == JoyButton.Start) StartSession();
+            else if (GetViewport().GuiGetFocusOwner() == null) _initialFocus?.GrabFocus();
+            else return;
+        }
+        else if (e is InputEventKey { Pressed: true, Echo: false } key)
+        {
+            switch (key.Keycode)
+            {
+                case Key.Q: NextPage(-1); break;
+                case Key.E: NextPage(1); break;
+                case Key.Tab: _page = Page.Garage; Category(!_classic); break;
+                case Key.Up: _page = Page.Garage; SelectTeam(_team - 1); break;
+                case Key.Down: _page = Page.Garage; SelectTeam(_team + 1); break;
+                case Key.Left:
+                case Key.Right:
+                    if (_page == Page.Circuits) SelectCircuit(DataFiles.CircuitIds[(Array.IndexOf(DataFiles.CircuitIds, Config.TrackId) + 1) % DataFiles.CircuitIds.Length]);
+                    else SelectSeat(key.Keycode == Key.Left ? 0 : 1);
+                    break;
+                case Key.Key1: case Key.Key2: case Key.Key3: SetCompound(Compounds[(int)(key.Keycode - Key.Key1)]); break;
+                case Key.G: ToggleGhost(); break;
+                case Key.Enter: case Key.KpEnter: StartSession(); break;
+                case Key.Escape: if (_page == Page.TimeTrial) App.Instance.Quit(); else Show(Page.TimeTrial); break;
+                default: return;
+            }
+        }
+        else return;
+        GetViewport().SetInputAsHandled();
+    }
 
     public override void _Process(double delta)
     {
-        if (_shotFrames < 0)
-        {
-            _turntable.RotateY((float)delta * 0.25f);
-            return;
-        }
-        if (++_shotFrames >= 24)
-        {
-            string dir = App.Instance.Arg("out") ?? ProjectSettings.GlobalizePath("user://shots");
-            System.IO.Directory.CreateDirectory(dir);
-            string path = System.IO.Path.Combine(dir, "main_menu.png");
-            GetViewport().GetTexture().GetImage().SavePng(path);
-            GD.Print($"saved {path}");
-            App.Instance.Quit(0);
-        }
-    }
-
-    public override void _UnhandledInput(InputEvent e)
-    {
-        if (e is not InputEventKey { Pressed: true, Echo: false } k) return;
-        switch (k.Keycode)
-        {
-            case Key.Tab: ChangeCategory(!_classic); break;
-            case Key.Up: Select(_team - 1); break;
-            case Key.Down: Select(_team + 1); break;
-            case Key.Left: _seat = 0; Refresh(); break;
-            case Key.Right: _seat = Math.Min(1, _teams[_team].Drivers.Count - 1); Refresh(); break;
-            case Key.Key1: case Key.Key2: case Key.Key3: _compound = (int)(k.Keycode - Key.Key1); Refresh(); break;
-            case Key.G: _ghostToggle.ButtonPressed = !_ghostToggle.ButtonPressed; break;
-            case Key.Enter: case Key.KpEnter: StartSession(); break;
-            case Key.Escape: App.Instance.Quit(); break;
-        }
+        if (_shotFrames < 0 || ++_shotFrames < 24) return;
+        var dir = App.Instance.Arg("out") ?? ProjectSettings.GlobalizePath("user://shots");
+        System.IO.Directory.CreateDirectory(dir);
+        GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(dir, "main_menu.png"));
+        App.Instance.Quit();
     }
 }

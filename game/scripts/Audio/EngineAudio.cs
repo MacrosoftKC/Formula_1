@@ -7,6 +7,13 @@ using Godot;
 
 namespace F1.Game.Audio;
 
+internal interface ISampledEngineVoice
+{
+    float SynthGain { get; }
+    void Update(Car car, float dt, float onboard, float doppler, float air, float gain);
+    void Release();
+}
+
 /// <summary>
 /// Car sound: feeds the car's live power-unit and chassis state into the procedural turbo-hybrid V6
 /// (<see cref="HybridV6Synth"/>) and chassis effects (<see cref="ChassisFxSynth"/>) and streams the result.
@@ -25,7 +32,7 @@ public partial class EngineAudio : Node3D
     private const float SpeedOfSound = 343f;
     private AudioStreamGeneratorPlayback? _playback;
     private HybridV6Synth _engine = null!;
-    private W11EngineVoice? _w11;
+    private ISampledEngineVoice? _sampled;
     private ChassisFxSynth _fx = null!;
     private float[] _eng = Array.Empty<float>(), _l = Array.Empty<float>(), _r = Array.Empty<float>();
     private Vector2[] _buffer = Array.Empty<Vector2>();
@@ -42,10 +49,12 @@ public partial class EngineAudio : Node3D
         if (Target != null)
         {
             _lastGear = Target.Gear;
-            if (Target.Team.Id == TeamData.W11)
+            if (Target.Team.Id is TeamData.W11 or TeamData.F2004)
             {
-                var stream = new AudioStreamPolyphonic { Polyphony = W11EngineVoice.Voices };
-                _w11 = new W11EngineVoice((AudioStreamPlaybackPolyphonic)StartStream(stream, "W11Onboard"), Target);
+                bool ferrari = Target.Team.Id == TeamData.F2004;
+                var stream = new AudioStreamPolyphonic { Polyphony = ferrari ? F2004EngineVoice.Voices : W11EngineVoice.Voices };
+                var playback = (AudioStreamPlaybackPolyphonic)StartStream(stream, ferrari ? "F2004V10" : "W11Onboard");
+                _sampled = ferrari ? new F2004EngineVoice(playback, Target) : new W11EngineVoice(playback, Target);
                 ProcessPhysicsPriority = Target.ProcessPhysicsPriority + 1;
             }
         }
@@ -68,11 +77,18 @@ public partial class EngineAudio : Node3D
         return stereo.GetStreamPlayback();
     }
 
+    public override void _ExitTree()
+    {
+        // Release only: stopping the polyphonic playback here deadlocks the mixer after a scene reload.
+        _sampled?.Release();
+        _sampled = null;
+    }
+
     public override void _PhysicsProcess(double delta)
     {
-        if (_w11 == null || Target == null || !IsInstanceValid(Target)) return;
+        if (_sampled == null || Target == null || !IsInstanceValid(Target)) return;
         float gain = App.Instance.Settings.EngineVolume * _gain * (Positional ? 1.0f : 0.72f);
-        _w11.Update(Target, (float)delta, _onboard, _doppler, _air, gain);
+        _sampled.Update(Target, (float)delta, _onboard, _doppler, _air, gain);
     }
 
     public override void _Process(double delta)
@@ -111,7 +127,7 @@ public partial class EngineAudio : Node3D
             _buffer = new Vector2[frames];
         }
         var eng = _eng.AsSpan(0, frames);
-        float synthGain = _w11?.SynthGain ?? 1;
+        float synthGain = _sampled?.SynthGain ?? 1;
         if (synthGain > 0.001f) _engine.Render(eng);
         else eng.Clear();
 
@@ -148,7 +164,7 @@ public partial class EngineAudio : Node3D
             onboard = Rig.Mode switch
             {
                 CameraMode.Cockpit or CameraMode.Helmet => 1f,
-                CameraMode.TCam => _w11 == null ? 0.75f : 1f,
+                CameraMode.TCam => _sampled == null ? 0.75f : 1f,
                 CameraMode.Nose => 0.55f,
                 CameraMode.ChaseNear => 0.15f,
                 _ => 0f,

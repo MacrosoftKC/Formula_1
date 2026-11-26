@@ -20,8 +20,16 @@ public partial class App : Node
     public GameSettings Settings { get; private set; } = null!;
     public SessionConfig Session { get; set; } = new();
 
-    private TrackData? _track;
-    public TrackData Track => _track ??= DataFiles.LoadTrack();
+    private readonly Dictionary<string, TrackData> _tracks = new();
+    public TrackData Track => Circuit(Session.TrackId);
+
+    public TrackData Circuit(string id)
+    {
+        if (!DataFiles.CircuitIds.Contains(id)) throw new ArgumentException($"Unknown circuit {id}");
+        if (!_tracks.TryGetValue(id, out var data))
+            _tracks[id] = data = DataFiles.LoadTrack($"res://data/tracks/{id}/track.json");
+        return data;
+    }
 
     /// <summary>Command-line arguments after "--", e.g. --autotest=boot.</summary>
     public Dictionary<string, string> Args { get; } = new();
@@ -45,6 +53,11 @@ public partial class App : Node
             else Args[a] = "true";
         }
         Teams = DataFiles.LoadTeams();
+        if (Arg("track") is { } requested)
+        {
+            if (DataFiles.CircuitIds.Contains(requested)) Session.TrackId = requested;
+            else GD.PushWarning($"Unknown circuit '{requested}', using {Session.TrackId}.");
+        }
         ClassicCars = DataFiles.Load<TeamsFile>(DataFiles.ClassicsPath).Teams;
         Regulations = DataFiles.LoadRegulations();
         Settings = SettingsStore.Load();

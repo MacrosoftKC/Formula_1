@@ -12,7 +12,8 @@ public enum StewardsMode { Off, Lenient, Strict }
 public sealed class SessionConfig
 {
     public SessionMode Mode { get; set; } = SessionMode.TimeTrial;
-    public string TeamId { get; set; } = "mclaren";
+    public string TrackId { get; set; } = DataFiles.SpaId;
+    public string TeamId { get; set; } = "red_bull";
     /// <summary>Which of the team's two seats the player takes (0 or 1); that driver sits out.</summary>
     public int Seat { get; set; }
     public string Compound { get; set; } = "soft";

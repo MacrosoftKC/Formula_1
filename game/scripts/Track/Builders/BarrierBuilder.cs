@@ -45,7 +45,8 @@ public static class BarrierBuilder
                 body.AddChild(new CollisionShape3D { Name = $"Col{side}_{start / ChunkSize}", Shape = shape });
             }
 
-        BuildTyreWalls(root, f);
+        // Spa has continuous safety barriers with alternating red/yellow impact blocks. Batch them with the wall.
+        if (f.Surface.Data.Id != DataFiles.SpaId) BuildTyreWalls(root, f);
         BuildHoardings(root, f);
     }
 
@@ -64,10 +65,15 @@ public static class BarrierBuilder
         var up = new Vector3(0, WallHeight, 0);
         var towardTrack = -f.N[f.Wrap(i)] * sign;
 
-        var shade = WallColor.Darkened((i / 6) % 2 == 0 ? 0f : 0.04f);
+        bool spa = f.Surface.Data.Id == DataFiles.SpaId;
+        char surface = sign > 0 ? f.RunoffLeft(i) : f.RunoffRight(i);
+        var paint = spa && surface is 'A' or 'R'
+            ? (i / 5 % 2 == 0 ? new Color(.76f,.12f,.13f) : new Color(.92f,.70f,.18f))
+            : spa && surface == 'G' ? new Color(.51f,.55f,.54f) : WallColor;
+        var shade = paint.Darkened((i / 6) % 2 == 0 ? 0f : 0.04f);
         wall.QuadFacing(i0, i1, i1 + up, i0 + up, towardTrack, shade);
-        wall.QuadFacing(i0 + up, i1 + up, o1 + up, o0 + up, Vector3.Up, WallColor.Lightened(0.06f));
-        wall.QuadFacing(o0, o1, o1 + up, o0 + up, -towardTrack, WallColor.Darkened(0.12f));
+        wall.QuadFacing(i0 + up, i1 + up, o1 + up, o0 + up, Vector3.Up, paint.Lightened(0.06f));
+        wall.QuadFacing(o0, o1, o1 + up, o0 + up, -towardTrack, paint.Darkened(0.12f));
 
         var tall = new Vector3(0, WallHeight + 1.2f, 0);
         col.QuadFacing(i0 + new Vector3(0, -0.5f, 0), i1 + new Vector3(0, -0.5f, 0), i1 + tall, i0 + tall, towardTrack, shade);

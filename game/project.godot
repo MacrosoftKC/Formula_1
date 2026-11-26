@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Low-Poly F1"
-config/description="Low-poly Formula 1 racing at a 1:1 Albert Park."
+config/description="Low-poly Formula 1 time trials at Spa-Francorchamps and Albert Park."
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"

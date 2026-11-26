@@ -2,7 +2,7 @@ extends SceneTree
 
 # Godot --headless --path game --script <pack_banks.gd> -- <WAV directory>
 const LOOPS := ["LowZ", "LowA", "LowB", "LowC", "LowD", "LowE", "LowF", "LowTop",
-	"HighA", "HighB", "HighC", "HighTop", "Idle", "CoastLow", "CoastHigh", "Limiter"]
+	"HighZ", "HighA", "HighB", "HighC", "HighTop", "Idle", "CoastLow", "CoastHigh", "Limiter"]
 const SHOTS := ["UpshiftLow", "UpshiftHigh", "DownshiftLow", "DownshiftHigh"]
 
 func _initialize() -> void:

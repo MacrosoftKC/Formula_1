@@ -84,12 +84,15 @@ public partial class CarShowroom : Node3D
     private void Aim((string Name, Vector3 Eye, Vector3 Look, float Fov) a)
     {
         bool onboard = a.Name == "onboard";
-        bool studioModel = _teams[_team].Id is "red_bull" or TeamData.W11;
+        bool ferrari = _teams[_team].Id == TeamData.F2004;
+        bool studioModel = _teams[_team].Id is "red_bull" or TeamData.W11 or TeamData.F2004;
         _cam.Projection = Camera3D.ProjectionType.Perspective;
         if (studioModel && a.Name == "front34")
             a = ("front34", new(-5.65f, 2.36f, -6.0f), new(0.20f, 0.38f, -0.60f), 25);
         if (_teams[_team].Id == TeamData.W11 && a.Name == "front34")
             a = ("front34", new(-4.45f, 1.92f, -5.55f), new(0.02f, 0.36f, -0.52f), 27.5f);
+        if (ferrari && a.Name == "front34")
+            a = ("front34", new(-4.26f, 1.69f, -4.15f), new(0, 0.36f, -0.52f), 28.5f);
         if (onboard && _model != null) a = (a.Name, a.Eye + _model.OnboardOffset, a.Look + _model.OnboardOffset, a.Fov);
         _cam.Fov = a.Fov > 0 ? a.Fov : App.Instance.Settings.FovFor(CameraMode.Cockpit);
         _cam.Near = onboard ? 0.03f : 0.05f;
@@ -97,14 +100,14 @@ public partial class CarShowroom : Node3D
         _studio.Floor.Visible = a.Name != "bottom";
         if (studioModel && a.Name is "front" or "back" or "left" or "right" or "top" or "bottom")
         {
-            var centre = new Vector3(0, 0.63f, -0.345f);
+            var centre = ferrari ? new Vector3(0, 0.48f, -0.257f) : new Vector3(0, 0.63f, -0.345f);
             var axis = a.Name switch
             {
                 "left" => Vector3.Left, "right" => Vector3.Right, "front" => Vector3.Forward,
                 "back" => Vector3.Back, "top" => Vector3.Up, _ => Vector3.Down,
             };
             var size = GetViewport().GetVisibleRect().Size;
-            float width = axis.Z == 0 ? 6.35f : 2.45f;
+            float width = axis.Z == 0 ? (ferrari ? 4.93f : 6.35f) : (ferrari ? 2.12f : 2.45f);
             _cam.Projection = Camera3D.ProjectionType.Orthogonal;
             _cam.Size = Mathf.Max(a.Name is "top" or "bottom" ? 2.35f : 1.52f, width * size.Y / size.X);
             _cam.GlobalPosition = centre + axis * 12;

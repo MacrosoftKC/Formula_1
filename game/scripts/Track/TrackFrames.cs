@@ -23,9 +23,10 @@ public sealed class TrackFrames
         WL = new float[Count]; WR = new float[Count]; BL = new float[Count]; BR = new float[Count];
         for (int i = 0; i < Count; i++)
         {
-            P[i] = Units.ToWorld(g.Point(i));
+            P[i] = Units.ToWorld(g.Point(i), ts.HasRelief ? (float)d.Elevation[i] : 0f);
             T[i] = Units.DirToWorld(g.Tangent(i)).Normalized();
             N[i] = Units.DirToWorld(g.Normal(i)).Normalized();
+            if (ts.HasRelief) N[i].Y = (float)d.Crossfall[i];
             WL[i] = (float)d.WidthLeft[i]; WR[i] = (float)d.WidthRight[i];
             BL[i] = (float)d.BarrierLeft[i]; BR[i] = (float)d.BarrierRight[i];
         }

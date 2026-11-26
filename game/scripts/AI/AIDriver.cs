@@ -25,6 +25,8 @@ public class AIDriver : IDriver
     /// <summary>When set, the driver steers to this absolute lateral offset instead of the racing line (pit lane, grid).</summary>
     public double? LateralTarget { get; set; }
     public bool UseDrs { get; set; } = true;
+    /// <summary>Test hook: hold full throttle (no lifting, no braking) between these track distances.</summary>
+    public (double From, double To)? FlatOut { get; set; }
     public bool Enabled { get; set; } = true;
     /// <summary>Speed target from the last tick (diagnostics/HUD).</summary>
     public double LastTarget { get; private set; }
@@ -73,7 +75,7 @@ public class AIDriver : IDriver
         double halfR = center.Sample(car.Track.Data.WidthRight, sAhead) - 1.1;
         if (LateralTarget == null) latAhead = Math.Clamp(latAhead, -halfR, halfL);
         var target2 = center.ToWorld(sAhead, latAhead);
-        var targetWorld = Units.ToWorld(target2, car.GlobalPosition.Y);
+        var targetWorld = Units.ToWorld(target2, car.Track.HasRelief ? car.Track.RoadHeight(sAhead, latAhead) : car.GlobalPosition.Y);
         var local = car.GlobalTransform.AffineInverse() * targetWorld; // forward is -Z
         double ld = Math.Max(1, new Vector2(local.X, local.Z).Length());
         double curvature = -2 * local.X / (ld * ld);                   // +ve = left
@@ -110,6 +112,7 @@ public class AIDriver : IDriver
             inputs.Throttle = (float)Math.Clamp(1 + err * 0.6, 0, 1) * (err > -1.5 ? 1 : 0);
             inputs.Brake = (float)Math.Clamp(-err * 0.11, 0, 1);
         }
+        if (FlatOut is { } flat && s >= flat.From && s <= flat.To) { inputs.Throttle = 1; inputs.Brake = 0; }
         // cut the throttle while badly sideways
         double slide = Math.Max(Math.Abs(car.Wheels[Car.RL].SlipAngle), Math.Abs(car.Wheels[Car.RR].SlipAngle));
         if (slide > 0.16 && v > 12) inputs.Throttle *= 0.4f;

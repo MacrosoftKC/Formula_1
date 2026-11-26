@@ -20,7 +20,12 @@ public enum SurfaceType
 public struct SurfaceInfo
 {
     public SurfaceType Type;
+    /// <summary>Height of the smooth road (or pit lane) surface under the wheel.</summary>
     public float Height;
+    /// <summary>Extra height of short features on top of <see cref="Height"/> (kerb profile). The car's tyre and
+    /// unsprung mass filter this; it is never applied as a step.</summary>
+    public float Lift;
+    public Vector3 Normal;
     /// <summary>Peak grip multiplier relative to dry asphalt.</summary>
     public float Grip;
     /// <summary>Rolling-resistance coefficient (gravel and grass slow the car down).</summary>
@@ -35,8 +40,7 @@ public struct SurfaceInfo
 }
 
 /// <summary>
-/// Runtime queries against the circuit description. Albert Park is flat, so the ground is the y = 0 plane plus kerb
-/// height; surface type comes from the lateral position relative to the track edges, kerbs and run-off.
+/// Surface classification and contact geometry in the same metric frame as the road and pit meshes.
 /// </summary>
 public sealed class TrackSurface
 {
@@ -46,7 +50,9 @@ public sealed class TrackSurface
     public double Length => Center.Length;
 
     public const float KerbWidth = 1.2f;
-    public const float KerbHeight = 0.035f;
+    public const float KerbHeight = 0.03f;
+    /// <summary>Width of the chamfer that takes the kerb from road level to its full height (and back at the outside).</summary>
+    public const float KerbRamp = 0.35f;
     public const float VergeWidth = 1.0f;
 
     public TrackSurface(TrackData data)
@@ -54,6 +60,54 @@ public sealed class TrackSurface
         Data = data;
         Center = new TrackGeometry(data.Centerline, closed: true);
         Pit = new TrackGeometry(data.PitLane.Path, closed: false);
+    }
+
+    public bool HasRelief => Data.Elevation.Count != 0;
+    // Heights use slope-continuous interpolation so the suspension never sees a step in vertical velocity.
+    public float RoadHeight(double s, double d = 0) => HasRelief
+        ? (float)(Center.SampleSmooth(Data.Elevation, s) + d * Center.SampleSmooth(Data.Crossfall, s)) : 0f;
+
+    public Vector3 WorldPoint(double s, double d, float height = 0) =>
+        Units.ToWorld(Center.ToWorld(s, d), RoadHeight(s, d) + height);
+
+    public float PitHeight(double u) => Data.PitLane.Elevation.Count == 0 ? 0f : (float)Pit.SampleSmooth(Data.PitLane.Elevation, u);
+
+    /// <summary>
+    /// Height of the pit-lane surface at (u, d). Where the exit lane runs over the circuit's own asphalt (it merges over
+    /// the last ~90 m at Spa) the flat lane must never stand proud of the cambered road, or it would prop a car up.
+    /// </summary>
+    public float PitSurfaceHeight(double u, double d)
+    {
+        float h = PitHeight(u);
+        if (!HasRelief) return h;
+        var p = Pit.ToWorld(u, d);
+        var proj = Center.Project(p, null, 0);
+        if (proj.D <= HalfWidthLeft(proj.S) + VergeWidth && proj.D >= -HalfWidthRight(proj.S) - VergeWidth)
+            h = Math.Min(h, RoadHeight(proj.S, proj.D));
+        return h;
+    }
+
+    public Vector3 PitPoint(double u, double d, float height = 0) => Units.ToWorld(Pit.ToWorld(u, d), PitSurfaceHeight(u, d) + height);
+
+    /// <summary>Surface normal of the smooth road at (s, d): grade along the lap and crossfall across it.</summary>
+    private Vector3 RoadNormal(double s, double d)
+    {
+        if (!HasRelief) return Vector3.Up;
+        var tangent = Units.DirToWorld(Center.TangentAt(s));
+        var left = Units.DirToWorld(Center.NormalAt(s));
+        double grade = RoadHeight(s + 0.5, d) - RoadHeight(s - 0.5, d);
+        double crossfall = Center.SampleSmooth(Data.Crossfall, s);
+        return (Vector3.Up - tangent * (float)grade - left * (float)crossfall).Normalized();
+    }
+
+    /// <summary>Kerb height above the road at <paramref name="e"/> metres outside the white line: chamfered up from
+    /// road level, falling slightly across the top, and chamfered back down at the outer edge.</summary>
+    public static float KerbProfile(double e)
+    {
+        if (e <= 0 || e >= KerbWidth) return 0f;
+        double rise = Math.Clamp(e / KerbRamp, 0, 1), fall = Math.Clamp((KerbWidth - e) / KerbRamp, 0, 1);
+        double smooth(double x) => x * x * (3 - 2 * x);
+        return KerbHeight * (float)(smooth(rise) * smooth(fall) * (1 - 0.3 * e / KerbWidth));
     }
 
     public double HalfWidthLeft(double s) => Center.Sample(Data.WidthLeft, s);
@@ -88,7 +142,8 @@ public sealed class TrackSurface
         if (proj.DistanceSquared > 400 * 400) proj = Center.Project(p);
         hintS = proj.S;
 
-        var info = new SurfaceInfo { S = proj.S, D = proj.D, Grip = 1f, Rolling = 0.012f };
+        var info = new SurfaceInfo { S = proj.S, D = proj.D, Grip = 1f, Rolling = 0.012f,
+            Height = RoadHeight(proj.S, proj.D), Normal = RoadNormal(proj.S, proj.D) };
         double s = proj.S, d = proj.D;
         double halfL = HalfWidthLeft(s), halfR = HalfWidthRight(s);
 
@@ -110,6 +165,9 @@ public sealed class TrackSurface
             {
                 info.Type = SurfaceType.PitLane;
                 info.InPitLane = true;
+                info.Height = PitSurfaceHeight(pp.S, pp.D);
+                float slope = (PitHeight(pp.S + 1) - PitHeight(pp.S - 1)) * 0.5f;
+                info.Normal = (Vector3.Up - Units.DirToWorld(Pit.TangentAt(pp.S)) * slope).Normalized();
                 info.Grip = 0.97f;
                 return info;
             }
@@ -119,9 +177,9 @@ public sealed class TrackSurface
         if (kerbs[idx] == 'K' && edgeDist <= KerbWidth)
         {
             info.Type = SurfaceType.Kerb;
-            info.Height = KerbHeight * (float)(1.0 - edgeDist / KerbWidth * 0.5);
-            info.Grip = 0.9f;
-            info.Bump = 0.012f;
+            info.Lift = KerbProfile(edgeDist);
+            info.Grip = 0.92f;
+            info.Bump = 0.004f;
             return info;
         }
 
@@ -162,21 +220,16 @@ public sealed class TrackSurface
     /// <summary>World transform of a grid slot: on the track, facing the race direction.</summary>
     public Transform3D GridTransform(GridSlot slot, float height = 0f)
     {
-        var pos = Units.ToWorld(Center.ToWorld(slot.S, slot.D), height);
-        return FacingTransform(slot.S, pos);
+        return TrackTransform(slot.S, slot.D, height);
     }
 
     /// <summary>Transform at track distance s / offset d facing the race direction (car forward is -Z in Godot).</summary>
     public Transform3D TrackTransform(double s, double d, float height = 0f)
     {
-        var pos = Units.ToWorld(Center.ToWorld(s, d), height);
-        return FacingTransform(s, pos);
-    }
-
-    private Transform3D FacingTransform(double s, Vector3 pos)
-    {
-        var fwd = Units.DirToWorld(Center.TangentAt(s)).Normalized();
-        var basis = Basis.LookingAt(fwd, Vector3.Up);
-        return new Transform3D(basis, pos);
+        var pos = WorldPoint(s, d, height);
+        var fwd = Units.DirToWorld(Center.TangentAt(s));
+        if (!HasRelief) return new Transform3D(Basis.LookingAt(fwd, Vector3.Up), pos);
+        fwd.Y = (RoadHeight(s + 1, d) - RoadHeight(s - 1, d)) * 0.5f;
+        return new Transform3D(Basis.LookingAt(fwd.Normalized(), RoadNormal(s, d)), pos);
     }
 }

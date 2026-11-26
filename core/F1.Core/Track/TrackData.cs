@@ -25,6 +25,9 @@ public sealed class TrackData
 
     public double SampleSpacing { get; set; }
     public List<Vec2> Centerline { get; set; } = new();
+    /// <summary>Metres above the local vertical origin and rise per metre to the left. Empty profiles are flat.</summary>
+    public List<double> Elevation { get; set; } = new();
+    public List<double> Crossfall { get; set; } = new();
     public List<double> WidthLeft { get; set; } = new();
     public List<double> WidthRight { get; set; } = new();
 
@@ -50,6 +53,8 @@ public sealed class TrackData
     /// <summary>Track distance where each sector starts. Sector 1 starts at 0.</summary>
     public List<double> SectorStarts { get; set; } = new();
     public List<DrsZone> DrsZones { get; set; } = new();
+    /// <summary>Track distance of a separate painted start line behind the control line (0 = same line).</summary>
+    public double StartLineS { get; set; }
     public List<GridSlot> Grid { get; set; } = new();
     public PitLaneData PitLane { get; set; } = new();
     public double SafetyCarLine1 { get; set; }
@@ -108,6 +113,7 @@ public sealed class PitLaneData
     public double ExitS { get; set; }
     /// <summary>Pit lane centreline, sampled uniformly, from the entry branch to the exit merge.</summary>
     public List<Vec2> Path { get; set; } = new();
+    public List<double> Elevation { get; set; } = new();
     /// <summary>Matching track distance for each pit path sample (wraps past the line).</summary>
     public List<double> TrackS { get; set; } = new();
     public double Width { get; set; } = 12;

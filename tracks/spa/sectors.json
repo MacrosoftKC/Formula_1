@@ -1,0 +1,31 @@
+{
+ "note": "Sector lines are not published; these are envelopes.",
+ "sectors": [
+  {
+   "sector": 1,
+   "startS": 0.0,
+   "status": "ENVELOPE",
+   "provenance": "DEFINITION(control line)"
+  },
+  {
+   "sector": 2,
+   "startS": 2203.3,
+   "envelope": [
+    2203.3,
+    2322.3
+   ],
+   "status": "ENVELOPE",
+   "provenance": "DERIVED(user map, S1 end ≈ 2,216 m after the 155 m flag correction; inferred envelope 2,216-2,335 m)"
+  },
+  {
+   "sector": 3,
+   "startS": 4922.3,
+   "envelope": [
+    4857.3,
+    4943.3
+   ],
+   "status": "ENVELOPE",
+   "provenance": "DERIVED(user map, S2 end ≈ 4,935 m; inferred envelope T14 exit-T15 entry)"
+  }
+ ]
+}

@@ -14,6 +14,7 @@ public struct Wheel
     public float Radius;
     public double Omega;           // rad/s, positive = rolling forwards
     public double Compression, PrevCompression;
+    public double Detail;          // filtered height of short surface features (kerbs, rumble) under the tyre
     public double Fz, Fx, Fy;
     public double SlipRatio, SlipAngle;
     public double SteerAngle;
@@ -38,9 +39,15 @@ public partial class Car : RigidBody3D
     public const float FrontAxleZ = -1.8f, RearAxleZ = 1.8f;
     public const float FrontTrackHalf = 0.80f, RearTrackHalf = 0.78f;
     public const float WheelRadius = 0.36f, W11WheelRadius = 0.335f;
-    private double ChassisMass => Team.Id == TeamData.W11 ? 746 : DryMass;
+    internal static float TyreRadius(string id) => id switch { TeamData.F2004 => 0.33f, TeamData.W11 => W11WheelRadius, _ => WheelRadius };
+    private double ChassisMass => Team.Id switch { TeamData.F2004 => 605, TeamData.W11 => 746, _ => DryMass };
     public const float HardpointHeight = 0.47f;
     public const double RestLength = 0.12, MaxDroop = 0.15, BumpStop = 0.055;
+    /// <summary>Time constant with which the tyre carcass and unsprung mass follow short surface features: a kerb
+    /// lifts the wheel over a few milliseconds instead of within one physics step.</summary>
+    public const double TyreFollowTime = 0.012;
+    /// <summary>Damper knee: above this shaft speed the valves blow off and damping falls to a fraction.</summary>
+    public const double DamperKnee = 0.12, DamperBlowOff = 0.18;
     public const double MaxSteerAngle = 0.33;
     public const double DryMass = 798;
     public const double WheelInertia = 1.25;
@@ -55,7 +62,7 @@ public partial class Car : RigidBody3D
     // ---- systems --------------------------------------------------------------------------------
     public TrackSurface Track { get; private set; } = null!;
     public PowerUnit PU { get; private set; } = null!;
-    public Gearbox Box { get; } = new();
+    public Gearbox Box { get; private set; } = new();
     public AeroModel Aero { get; } = new();
     public BrakeSystem Brakes { get; } = new();
     public TyreState[] Tyres { get; } = new TyreState[4];
@@ -114,7 +121,9 @@ public partial class Car : RigidBody3D
         DriverInfo = driver;
         Name = $"Car_{driver.Code}";
         Setup = setup.Clone();
-        PU = new PowerUnit(fuelKg) { PowerFactor = team.Car.Power };
+        bool ferrari = team.Id == TeamData.F2004;
+        PU = ferrari ? PowerUnit.Ferrari053(fuelKg, team.Car.Power) : new PowerUnit(fuelKg) { PowerFactor = team.Car.Power };
+        Box = ferrari ? new Gearbox { Ratios = [4.9, 3.91, 3.17, 2.65, 2.24, 1.94, 1.69], UpshiftTime = 0.05 } : new Gearbox();
         for (int i = 0; i < 4; i++) Tyres[i] = new TyreState(compound, tyreTempC);
         _pitLimiterKmh = track.Data.PitLane.SpeedLimitKmh;
         ApplySetup();
@@ -132,7 +141,8 @@ public partial class Car : RigidBody3D
         Mass = (float)(ChassisMass + PU.FuelKg);
         CenterOfMassMode = CenterOfMassModeEnum.Custom;
         CenterOfMass = new Vector3(0, 0.28f, 0.18f);
-        Inertia = new Vector3(1150, 1250, 280);
+        bool ferrari = Team.Id == TeamData.F2004;
+        Inertia = ferrari ? new Vector3(665, 715, 182) : new Vector3(1150, 1250, 280);
         ContinuousCd = true;
         CanSleep = false;
         // Replace (not combine with) the project's default damping: aero drag is modelled explicitly.
@@ -146,25 +156,25 @@ public partial class Car : RigidBody3D
         ContactMonitor = true;
         MaxContactsReported = 4;
 
-        var body = new CollisionShape3D { Name = "Chassis", Shape = new BoxShape3D { Size = new Vector3(1.6f, 0.62f, 4.9f) } };
-        body.Position = new Vector3(0, 0.39f, 0.15f);
+        var body = new CollisionShape3D { Name = "Chassis", Shape = new BoxShape3D { Size = ferrari ? new Vector3(1.42f, 0.47f, 3.58f) : new Vector3(1.6f, 0.62f, 4.9f) } };
+        body.Position = ferrari ? new Vector3(0, 0.32f, 0.03f) : new Vector3(0, 0.39f, 0.15f);
         AddChild(body);
-        var wings = new CollisionShape3D { Name = "Wings", Shape = new BoxShape3D { Size = new Vector3(1.95f, 0.3f, 5.6f) } };
-        wings.Position = new Vector3(0, 0.3f, 0.1f);
+        var wings = new CollisionShape3D { Name = "Wings", Shape = new BoxShape3D { Size = ferrari ? new Vector3(1.796f, 0.22f, 4.545f) : new Vector3(1.95f, 0.3f, 5.6f) } };
+        wings.Position = ferrari ? new Vector3(0, 0.20f, -0.257f) : new Vector3(0, 0.3f, 0.1f);
         AddChild(wings);
 
         bool w11 = Team.Id == TeamData.W11;
-        float frontTrack = w11 ? 0.8475f : FrontTrackHalf;
-        float rearTrack = w11 ? 0.7975f : RearTrackHalf;
-        float frontZ = w11 ? -1.83f : FrontAxleZ;
-        float rearZ = w11 ? 1.83f : RearAxleZ;
+        float frontTrack = ferrari ? 0.735f : w11 ? 0.8475f : FrontTrackHalf;
+        float rearTrack = ferrari ? 0.7025f : w11 ? 0.7975f : RearTrackHalf;
+        float frontZ = ferrari ? -1.525f : w11 ? -1.83f : FrontAxleZ;
+        float rearZ = ferrari ? 1.525f : w11 ? 1.83f : RearAxleZ;
         Vector3[] hp =
         {
             new(-frontTrack, HardpointHeight, frontZ), new(frontTrack, HardpointHeight, frontZ),
             new(-rearTrack, HardpointHeight, rearZ), new(rearTrack, HardpointHeight, rearZ),
         };
         for (int i = 0; i < 4; i++)
-            Wheels[i] = new Wheel { Hardpoint = hp[i], Front = i < 2, Left = i % 2 == 0, Radius = w11 ? W11WheelRadius : WheelRadius, SurfaceHint = -1, CenterDistance = RestLength };
+            Wheels[i] = new Wheel { Hardpoint = hp[i], Front = i < 2, Left = i % 2 == 0, Radius = TyreRadius(Team.Id), SurfaceHint = -1, CenterDistance = RestLength };
 
         Model = new CarModel { Name = "Model" };
         AddChild(Model);
@@ -178,7 +188,7 @@ public partial class Car : RigidBody3D
         GlobalTransform = t;
         LinearVelocity = Vector3.Zero;
         AngularVelocity = Vector3.Zero;
-        for (int i = 0; i < 4; i++) { Wheels[i].Omega = 0; Wheels[i].SurfaceHint = -1; Wheels[i].Compression = Wheels[i].PrevCompression = 0.008; }
+        for (int i = 0; i < 4; i++) { Wheels[i].Omega = 0; Wheels[i].SurfaceHint = -1; Wheels[i].Compression = Wheels[i].PrevCompression = 0.008; Wheels[i].Detail = 0; }
         _sHint = -1;
         Box.SetGear(1);
         _prevVelocity = Vector3.Zero;
@@ -326,7 +336,7 @@ public partial class Car : RigidBody3D
         {
             ref var w = ref Wheels[i];
             if (w.Grounded) w.Fz = Math.Max(0, w.Fz + (i == FL ? arbF : i == FR ? -arbF : i == RL ? arbR : -arbR));
-            if (w.Grounded && w.Fz > 0) ApplyForce(up * (float)w.Fz, w.Contact - xf.Origin);
+            if (w.Grounded && w.Fz > 0) ApplyForce((Track.HasRelief ? w.Surface.Normal : up) * (float)w.Fz, w.Contact - xf.Origin);
             if (i < 2) w.SteerAngle = steer;
             TyreForces(ref w, i, xf, basis, comWorld, brake, dt, i >= 2 ? reflectedInertia : 0);
             if (w.Grounded && !w.Surface.OnTrack && !w.Surface.InPitLane) off++;
@@ -353,7 +363,7 @@ public partial class Car : RigidBody3D
     {
         if (Inputs.TogglePitLimiter) PitLimiter = !PitLimiter;
         if (Assists.PitLimiterAssist) PitLimiter = InPitLane && Track.Data.PitLane != null && IsInSpeedLimitZone();
-        if (Inputs.ErsModeDelta != 0)
+        if (PU.HasErs && Inputs.ErsModeDelta != 0)
             PU.Mode = (ErsMode)Math.Clamp((int)PU.Mode + Inputs.ErsModeDelta, (int)ErsMode.None, (int)ErsMode.Hotlap);
         PU.OvertakeActive = Inputs.Overtake && PU.StoreJ > 0;
         if (Inputs.BrakeBiasDelta != 0) { Setup.BrakeBias = Math.Clamp(Setup.BrakeBias + Inputs.BrakeBiasDelta, 50, 70); Brakes.Bias = Setup.BrakeBias / 100.0; }
@@ -396,12 +406,13 @@ public partial class Car : RigidBody3D
         double roadOmega = Math.Max(0, LinearVelocity.Dot(-GlobalBasis.Z)) / Wheels[RL].Radius;
         double rearOmega = Math.Min(Math.Abs((Wheels[RL].Omega + Wheels[RR].Omega) * 0.5), roadOmega * 1.08);
         double rpmNow = rearOmega * Box.OverallRatio() * 60 / Math.Tau;
-        if (rpmNow > 11900 && Box.Gear < Box.TopGear && ClutchEngagement > 0.99) { Box.ShiftUp(); return; }
+        if (rpmNow > PU.UpshiftRpm && Box.Gear < Box.TopGear && ClutchEngagement > 0.99) { Box.ShiftUp(); return; }
         if (Box.Gear > 1)
         {
             double rpmLower = rearOmega * Box.OverallRatio(Box.Gear - 1) * 60 / Math.Tau;
             double threshold = throttle > 0.5 ? 9800 : 8800;
-            if (rpmNow < threshold && rpmLower < 11600) Box.ShiftDown();
+            threshold *= PU.UpshiftRpm / 11900;
+            if (rpmNow < threshold && rpmLower < PU.UpshiftRpm - 300) Box.ShiftDown();
         }
     }
 
@@ -410,10 +421,14 @@ public partial class Car : RigidBody3D
         ref var w = ref Wheels[i];
         var hp = xf * w.Hardpoint;
         w.Surface = Track.Query(hp, ref w.SurfaceHint);
-        double groundY = w.Surface.Height;
+        // Short features (kerb chamfers, rumble) reach the suspension through the tyre and the unsprung mass, which
+        // cannot follow them within one 4 ms step; the smooth road height itself is followed exactly.
+        double detail = w.Surface.Lift;
         if (w.Surface.Bump > 0)
-            groundY += w.Surface.Bump * Math.Sin(w.Surface.S * 9.1 + i * 1.7) * Math.Sin(w.Surface.S * 3.7);
-        double upY = Math.Max(0.25, up.Y);
+            detail += w.Surface.Bump * Math.Sin(w.Surface.S * 9.1 + i * 1.7) * Math.Sin(w.Surface.S * 3.7);
+        w.Detail += (detail - w.Detail) * (1 - Math.Exp(-dt / TyreFollowTime));
+        double groundY = w.Surface.Height + w.Detail;
+        double upY = Math.Max(0.25, up.Dot(w.Surface.Normal) / w.Surface.Normal.Y);
         double t = (hp.Y - groundY) / upY;         // distance from the hardpoint down to the ground along -up
         double center = t - w.Radius;
         w.PrevCompression = w.Compression;
@@ -433,10 +448,18 @@ public partial class Car : RigidBody3D
         double k = w.Front ? Setup.FrontSpringRate : Setup.RearSpringRate;
         double c = w.Front ? 9000 : 8500;
         double velocity = (x - w.PrevCompression) / dt;
-        double force = k * x + c * velocity;
+        double force = k * x + Damper(c, velocity);
         if (x > BumpStop) force += (x - BumpStop) * 2_500_000;
         w.Fz = Math.Max(0, force);
         w.Contact = hp - up * (float)t;
+    }
+
+    /// <summary>Digressive damper: full rate for body motion, valves blow off for sharp wheel strikes.</summary>
+    private static double Damper(double c, double v)
+    {
+        double a = Math.Abs(v);
+        double f = a <= DamperKnee ? c * a : c * (DamperKnee + DamperBlowOff * (a - DamperKnee));
+        return Math.Sign(v) * f;
     }
 
     private void TyreForces(ref Wheel w, int i, Transform3D xf, Basis basis, Vector3 comWorld, double brakePedal, double dt, double extraInertia)
@@ -455,7 +478,7 @@ public partial class Car : RigidBody3D
             return;
         }
 
-        var n = Vector3.Up;
+        var n = w.Surface.Normal;
         var fwd = -basis.Z;
         if (w.SteerAngle != 0) fwd = fwd.Rotated(basis.Y, (float)w.SteerAngle);
         fwd = (fwd - n * fwd.Dot(n)).Normalized();

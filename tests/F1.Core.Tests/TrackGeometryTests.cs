@@ -62,4 +62,22 @@ public class TrackGeometryTests
         Assert.False(Polyline.SelfIntersects(r, true));
         Assert.True(Polyline.SignedArea(sq) > 0);
     }
+
+    [Fact]
+    public void SmoothProfilePassesThroughSamplesWithContinuousSlope()
+    {
+        // a road that dips and climbs: linear interpolation would give the wheel a step in vertical velocity at every
+        // sample; the smooth sampler must hit every sample and change slope gradually across sample boundaries
+        var g = Circle(100, 120, clockwise: false);
+        double ds = g.Length / g.Count;
+        var profile = Enumerable.Range(0, g.Count).Select(i => 3 * Math.Sin(i * 2 * Math.PI / g.Count * 4)).ToList();
+        for (int i = 0; i < g.Count; i++) Assert.InRange(g.SampleSmooth(profile, g.SAt(i)), profile[i] - 1e-9, profile[i] + 1e-9);
+        double Slope(double s) => (g.SampleSmooth(profile, s + 1e-4) - g.SampleSmooth(profile, s - 1e-4)) / 2e-4;
+        for (int i = 1; i < g.Count; i++)
+        {
+            double s = g.SAt(i);
+            Assert.InRange(Slope(s + 1e-3) - Slope(s - 1e-3), -1e-3, 1e-3);
+        }
+        Assert.InRange(g.SampleSmooth(profile, g.Length + ds * 0.5), g.SampleSmooth(profile, ds * 0.5) - 1e-9, g.SampleSmooth(profile, ds * 0.5) + 1e-9);
+    }
 }

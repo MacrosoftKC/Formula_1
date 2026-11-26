@@ -4,7 +4,7 @@ public enum ErsMode { None, Medium, Hotlap, Overtake }
 public enum FuelMix { Lean, Standard, Rich }
 
 /// <summary>
-/// 1.6 L V6 turbo-hybrid: ICE torque curve, MGU-K deployment/harvest with the 2025 energy limits, and fuel flow.
+/// ICE torque curve and fuel flow, with MGU-K deployment and harvesting for hybrid power units.
 /// Energy in joules, power in watts, torque in N·m.
 /// </summary>
 public sealed class PowerUnit
@@ -12,10 +12,17 @@ public sealed class PowerUnit
     // ICE torque curve (crank). Peak ≈ 560 kW around 11,500 rpm.
     private static readonly double[] CurveRpm = { 0, 4000, 6000, 8000, 10000, 10500, 11500, 12500, 13500, 15000 };
     private static readonly double[] CurveNm = { 120, 220, 300, 380, 470, 490, 465, 420, 370, 300 };
+    // Approximate the naturally aspirated 053's torque envelope, including its 636 kW peak at 18,300 rpm.
+    private static readonly double[] V10Rpm = { 0, 4000, 7000, 10000, 13000, 15000, 16500, 17500, 18300, 18800 };
+    private static readonly double[] V10Nm = { 70, 140, 198, 254, 313, 351, 353, 343, 332, 311 };
+    private double[] TorqueRpm { get; init; } = CurveRpm;
+    private double[] TorqueNm { get; init; } = CurveNm;
 
     public const double IdleRpm = 4000;
     public const double EngineInertia = 0.06; // kg·m², reflected through the gearbox
     public double RevLimit { get; init; } = 15000;
+    public double UpshiftRpm { get; private init; } = 11900;
+    public bool HasErs => StoreMaxJ > 0;
     public double PowerFactor { get; init; } = 1.0;
 
     // ERS (MGU-K) — 2025: 120 kW, 4 MJ store, 4 MJ/lap deploy, 2 MJ/lap harvest from the K.
@@ -50,7 +57,13 @@ public sealed class PowerUnit
         StoreJ = StoreMaxJ * storeFraction;
     }
 
-    public double StoreFraction => StoreJ / StoreMaxJ;
+    public static PowerUnit Ferrari053(double fuelKg, double powerFactor = 1) => new(fuelKg, 0)
+    {
+        TorqueRpm = V10Rpm, TorqueNm = V10Nm, PowerFactor = powerFactor, RevLimit = 18800, UpshiftRpm = 18300, Mode = ErsMode.None,
+        MguKMaxW = 0, MguHDirectW = 0, StoreMaxJ = 0, DeployPerLapJ = 0, HarvestKPerLapJ = 0
+    };
+
+    public double StoreFraction => HasErs ? StoreJ / StoreMaxJ : 0;
     public double DeployRemainingThisLapJ => Math.Max(0, DeployPerLapJ - DeployedThisLapJ);
 
     public void NewLap()
@@ -79,7 +92,7 @@ public sealed class PowerUnit
     {
         if (FuelKg <= 0) return -EngineBrakingTorque(rpm);
         if (rpm >= RevLimit) return -EngineBrakingTorque(rpm) * 0.5; // limiter cut
-        double full = Interp(CurveRpm, CurveNm, rpm) * PowerFactor * MixPower;
+        double full = Interp(TorqueRpm, TorqueNm, rpm) * PowerFactor * MixPower;
         double drive = full * Math.Clamp(throttle, 0, 1);
         double braking = EngineBrakingTorque(rpm) * (1 - Math.Clamp(throttle * 4, 0, 1));
         return drive - braking;
@@ -93,6 +106,7 @@ public sealed class PowerUnit
     /// </summary>
     public double UpdateErs(double dt, double throttle, double brakeDemand, double speedMs, double rpm, bool drsOrStraight)
     {
+        if (!HasErs) return 0;
         double power = 0;
         var mode = OvertakeActive ? ErsMode.Overtake : Mode;
         double speedKmh = speedMs * 3.6;
